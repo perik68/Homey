@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>El-klocka SE3</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{
+    width:100%;height:100%;
+    background:#111318;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Segoe UI',system-ui,sans-serif;
+    overflow:hidden;
+  }
+  .widget{
+    width:220px;
+    background:#1b1e28;
+    border-radius:18px;
+    padding:14px 14px 12px;
+    box-shadow:0 6px 24px rgba(0,0,0,.55);
+    display:flex;flex-direction:column;align-items:center;gap:10px;
+  }
+  .header{
+    width:100%;
+    display:flex;align-items:center;justify-content:space-between;
+  }
+  .badge{
+    font-size:9px;font-weight:700;letter-spacing:1.5px;
+    color:#555;text-transform:uppercase;
+  }
+  .status-dot{
+    width:6px;height:6px;border-radius:50%;
+    background:#333;flex-shrink:0;
+    transition:background .4s;
+  }
+  .status-dot.live  { background:#00e676 }
+  .status-dot.error { background:#ff5252 }
+
+  canvas{ display:block }
+
+  /* bar strip */
+  .price-strip{
+    display:flex;gap:3px;align-items:flex-end;
+    height:22px;width:100%;
+  }
+  .bar{
+    flex:1;border-radius:2px 2px 0 0;
+    min-height:3px;cursor:default;
+  }
+  .bar.now{
+    outline:2px solid rgba(255,255,255,.4);
+    outline-offset:1px;
+  }
+  /* tooltip */
+  #tt{
+    position:fixed;
+    background:#2c3044;border:1px solid #444;border-radius:6px;
+    padding:4px 8px;font-size:10px;color:#eee;
+    pointer-events:none;display:none;z-index:99;white-space:nowrap;
+  }
+</style>
+</head>
+<body>
+<div class="widget">
+  <div class="header">
+    <span class="badge">⚡ SE3 · 12h</span>
+    <div class="status-dot" id="dot"></div>
+  </div>
+  <canvas id="c" width="192" height="192"></canvas>
+  <div class="price-strip" id="strip"></div>
+</div>
+<div id="tt"></div>
+
+<script>
+// ── Config ─────────────────────────────────────
+const AREA_URL = 'https://elspot.nu/spotpriser-for-elomrade-se3-stockholm/';
+const PROXIES = [
+  u => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+  u => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
+];
+// ───────────────────────────────────────────────
+
+let hourly = [];   // [{hour, price}] 24 entries
+let next12 = [];   // 12 entries from current hour
+
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const CX = 96, CY = 96, R = 82;
+
+// ── Colors: 0 = green, 1 = red ─────────────────
+function priceColor(n, alpha = 1) {
+  const r = Math.round(n < .5 ? n * 2 * 218     : 218);
+  const g = Math.round(n < .5 ? 210              : (1 - (n - .5) * 2) * 210);
+  const b = 12;
+  return alpha < 1
+    ? `rgba(${r},${g},${b},${alpha})`
+    : `rgb(${r},${g},${b})`;
+}
+
+function norm(v, mn, mx) {
+  return mx === mn ? 0.5 : (v - mn) / (mx - mn);
+}
+
+// ── Fetch data from elspot.nu via CORS proxy ────
+async function fetchPrices() {
+  for (const proxy of PROXIES) {
+    try {
+      const res = await fetch(proxy(AREA_URL), { cache: 'no-store' });
+      if (!res.ok) continue;
+      const html  = await res.text();
+      const rows  = parseTable(html);
+      if (rows.length > 0) {
+        buildHourly(rows);
+        document.getElementById('dot').className = 'status-dot live';
+        return;
+      }
+    } catch (e) { /* try next */ }
+  }
+  document.getElementById('dot').className = 'status-dot error';
+  // keep demo data already shown
+}
+
+// Parse the quarter-hour table from elspot.nu HTML
+function parseTable(html) {
+  // Rows look like: "2026-03-01 09:30 | 12,26 öre/kWh"
+  const re = /\d{4}-\d{2}-\d{2}\s+(\d{2}):(\d{2})[^<\d]*?([\d]+[,.][\d]+)\s*öre/g;
+  const rows = [];
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    rows.push({
+      hour:  parseInt(m[1], 10),
+      min:   parseInt(m[2], 10),
+      price: parseFloat(m[3].replace(',', '.'))
+    });
+  }
+  return rows;
+}
+
+function buildHourly(rows) {
+  const map = {};
+  rows.forEach(({ hour, price }) => {
+    if (!map[hour]) map[hour] = { sum: 0, n: 0 };
+    map[hour].sum += price;
+    map[hour].n++;
+  });
+  hourly = Array.from({ length: 24 }, (_, h) => {
+    const e = map[h];
+    return { hour: h, price: e ? Math.round(e.sum / e.n * 10) / 10 : null };
+  });
+  buildNext12();
+}
+
+function useDemoData() {
+  const demo = [48,46,47,49,48,47,46,57,46,17,15,15,15,13,20,13,42,92,101,102,102,89,86,77];
+  hourly = demo.map((p, h) => ({ hour: h, price: p }));
+  buildNext12();
+}
+
+// ── Build the 12-hour window starting now ───────
+function buildNext12() {
+  const h = new Date().getHours();
+  next12 = Array.from({ length: 12 }, (_, i) => hourly[(h + i) % 24]);
+  buildStrip();
+}
+
+// ── Price bar strip ─────────────────────────────
+function buildStrip() {
+  const strip = document.getElementById('strip');
+  strip.innerHTML = '';
+  if (!next12.length) return;
+
+  const vals = next12.filter(x => x.price != null).map(x => x.price);
+  const mn = Math.min(...vals), mx = Math.max(...vals);
+  const nowH = new Date().getHours();
+
+  next12.forEach(entry => {
+    const div = document.createElement('div');
+    const isNow = entry.hour === nowH;
+    div.className = 'bar' + (isNow ? ' now' : '');
+    const n = entry.price != null ? norm(entry.price, mn, mx) : 0.5;
+    div.style.background = priceColor(n, isNow ? 1 : 0.72);
+    div.style.height = Math.round(28 + n * 72) + '%';
+
+    div.addEventListener('mouseenter', e => showTip(e, entry));
+    div.addEventListener('mousemove',  moveTip);
+    div.addEventListener('mouseleave', hideTip);
+    strip.appendChild(div);
+  });
+}
+
+function showTip(e, entry) {
+  const tt = document.getElementById('tt');
+  const p  = entry.price != null ? entry.price.toFixed(1) + ' öre/kWh' : '–';
+  tt.textContent = `${String(entry.hour).padStart(2,'0')}:00  ${p}`;
+  tt.style.display = 'block';
+  moveTip(e);
+}
+function moveTip(e) {
+  const tt = document.getElementById('tt');
+  tt.style.left = (e.clientX + 12) + 'px';
+  tt.style.top  = (e.clientY - 30) + 'px';
+}
+function hideTip() { document.getElementById('tt').style.display = 'none'; }
+
+// ── Clock ───────────────────────────────────────
+function drawClock() {
+  ctx.clearRect(0, 0, 192, 192);
+
+  const now  = new Date();
+  const hNow = now.getHours();
+  const mNow = now.getMinutes();
+  const sNow = now.getSeconds();
+
+  const vals  = next12.filter(x => x.price != null).map(x => x.price);
+  const mn    = vals.length ? Math.min(...vals) : 0;
+  const mx    = vals.length ? Math.max(...vals) : 1;
+
+  // ── Background ring ──
+  ctx.beginPath();
+  ctx.arc(CX, CY, R, 0, Math.PI * 2);
+  ctx.strokeStyle = '#232638';
+  ctx.lineWidth   = 15;
+  ctx.stroke();
+
+  // ── 12 colored arc segments ──
+  const SEG = (Math.PI * 2) / 12;
+  next12.forEach((entry, i) => {
+    const isNow = entry.hour === hNow;
+    const a1    = -Math.PI / 2 + i * SEG + 0.06;
+    const a2    = -Math.PI / 2 + (i + 1) * SEG - 0.06;
+    const n     = entry.price != null ? norm(entry.price, mn, mx) : 0.5;
+    const col   = priceColor(n);
+
+    // glow behind current segment
+    if (isNow) {
+      ctx.beginPath();
+      ctx.arc(CX, CY, R, a1 - 0.04, a2 + 0.04);
+      ctx.strokeStyle  = col;
+      ctx.lineWidth    = 22;
+      ctx.globalAlpha  = 0.22;
+      ctx.stroke();
+      ctx.globalAlpha  = 1;
+    }
+
+    ctx.beginPath();
+    ctx.arc(CX, CY, R, a1, a2);
+    ctx.strokeStyle = col;
+    ctx.lineWidth   = isNow ? 17 : 13;
+    ctx.globalAlpha = isNow ? 1 : 0.65;
+    ctx.stroke();
+    ctx.globalAlpha = 1;
+
+    // Hour label on the outer edge
+    const midA  = a1 + (a2 - a1) / 2;
+    const lx    = CX + Math.cos(midA) * (R + 19);
+    const ly    = CY + Math.sin(midA) * (R + 19);
+    ctx.fillStyle      = isNow ? '#fff' : '#4a4f6a';
+    ctx.font           = `${isNow ? '700' : '400'} ${isNow ? 9 : 7.5}px Segoe UI,system-ui`;
+    ctx.textAlign      = 'center';
+    ctx.textBaseline   = 'middle';
+    ctx.fillText(String(entry.hour).padStart(2, '0'), lx, ly);
+  });
+
+  // ── Inner clock face decorations ──
+  // Minute tick marks
+  for (let t = 0; t < 60; t++) {
+    const a = -Math.PI / 2 + t / 60 * Math.PI * 2;
+    const isMajor = t % 5 === 0;
+    const ir = R - 20 + (isMajor ? 0 : 3);
+    const or = R - 14;
+    ctx.beginPath();
+    ctx.moveTo(CX + Math.cos(a) * ir, CY + Math.sin(a) * ir);
+    ctx.lineTo(CX + Math.cos(a) * or, CY + Math.sin(a) * or);
+    ctx.strokeStyle = isMajor ? '#3a3f58' : '#272b3a';
+    ctx.lineWidth   = isMajor ? 1.5 : 1;
+    ctx.stroke();
+  }
+
+  // ── Clock hands ──
+  const hrA = -Math.PI / 2 + ((hNow % 12) + mNow / 60) / 12 * Math.PI * 2;
+  const mnA = -Math.PI / 2 + (mNow + sNow / 60) / 60 * Math.PI * 2;
+  const scA = -Math.PI / 2 + sNow / 60 * Math.PI * 2;
+
+  drawHand(CX, CY, hrA, 38, 5,   '#e8e8e8');
+  drawHand(CX, CY, mnA, 56, 3,   '#b0b4c8');
+  drawHand(CX, CY, scA, 60, 1.5, '#ff4455');
+
+  // Center cap
+  ctx.beginPath();
+  ctx.arc(CX, CY, 4.5, 0, Math.PI * 2);
+  ctx.fillStyle = '#fff';
+  ctx.fill();
+
+  // ── Center text: HH:MM ──
+  ctx.fillStyle      = '#ffffff';
+  ctx.font           = 'bold 18px Segoe UI,system-ui';
+  ctx.textAlign      = 'center';
+  ctx.textBaseline   = 'middle';
+  ctx.fillText(
+    `${String(hNow).padStart(2,'0')}:${String(mNow).padStart(2,'0')}`,
+    CX, CY - 9
+  );
+
+  // Current price below time
+  const cur = hourly.find(x => x.hour === hNow);
+  if (cur && cur.price != null) {
+    const allV  = hourly.filter(x => x.price != null).map(x => x.price);
+    const col   = priceColor(norm(cur.price, Math.min(...allV), Math.max(...allV)));
+    ctx.fillStyle    = col;
+    ctx.font         = 'bold 10px Segoe UI,system-ui';
+    ctx.fillText(cur.price.toFixed(1) + ' öre', CX, CY + 8);
+  }
+}
+
+function drawHand(cx, cy, angle, len, w, col) {
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + Math.cos(angle) * len, cy + Math.sin(angle) * len);
+  ctx.strokeStyle = col;
+  ctx.lineWidth   = w;
+  ctx.lineCap     = 'round';
+  ctx.stroke();
+}
+
+// ── Tick loop ───────────────────────────────────
+let lastHour = -1;
+function tick() {
+  const h = new Date().getHours();
+  if (h !== lastHour) {
+    lastHour = h;
+    buildNext12();   // shift window when hour changes
+  }
+  drawClock();
+}
+
+// ── Init ────────────────────────────────────────
+useDemoData();                          // instant placeholder render
+fetchPrices();                          // load real data async
+setInterval(tick, 1000);               // clock ticks every second
+setInterval(fetchPrices, 60*60*1000);  // refresh prices every hour
+tick();
+</script>
+</body>
+</html>

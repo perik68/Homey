@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Electricity Price Clock</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #0f1117;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'Segoe UI', sans-serif;
+      color: #fff;
+    }
+
+    .widget {
+      width: 320px;
+      padding: 20px;
+      background: #1a1d27;
+      border-radius: 20px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+
+    .title {
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 16px;
+    }
+
+    .clock-container {
+      position: relative;
+      width: 260px;
+      height: 260px;
+      margin: 0 auto;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0; left: 0;
+    }
+
+    .clock-center {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      pointer-events: none;
+    }
+
+    .clock-time {
+      font-size: 32px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      line-height: 1;
+    }
+
+    .clock-date {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+    }
+
+    .current-price {
+      font-size: 13px;
+      color: #ccc;
+      margin-top: 6px;
+    }
+
+    .current-price span {
+      font-weight: 700;
+      font-size: 15px;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 16px;
+      padding: 10px 14px;
+      background: #13151f;
+      border-radius: 10px;
+    }
+
+    .legend-label {
+      font-size: 10px;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .legend-bar {
+      flex: 1;
+      height: 6px;
+      margin: 0 10px;
+      border-radius: 3px;
+      background: linear-gradient(to right, #00e676, #ffeb3b, #ff1744);
+    }
+
+    .price-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 14px;
+      justify-content: center;
+    }
+
+    .price-dot-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 22px;
+    }
+
+    .price-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: default;
+      transition: transform 0.2s;
+    }
+
+    .price-dot:hover { transform: scale(1.4); }
+
+    .price-dot-label {
+      font-size: 8px;
+      color: #555;
+      margin-top: 2px;
+    }
+
+    .status {
+      text-align: center;
+      font-size: 10px;
+      color: #555;
+      margin-top: 12px;
+    }
+
+    .tooltip {
+      position: fixed;
+      background: #2a2d3a;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 11px;
+      pointer-events: none;
+      display: none;
+      z-index: 100;
+    }
+  </style>
+</head>
+<body>
+<div class="widget">
+  <div class="title">⚡ Elprisklocka · SE3</div>
+  <div class="clock-container">
+    <canvas id="clockCanvas" width="260" height="260"></canvas>
+    <div class="clock-center">
+      <div class="clock-time" id="clockTime">--:--</div>
+      <div class="clock-date" id="clockDate">...</div>
+      <div class="current-price">Nuvarande spotpris: <span id="currentPrice">--</span> öre/kWh</div>
+    </div>
+  </div>
+  <div class="legend">
+    <div class="legend-label">Low</div>
+    <div class="legend-bar"></div>
+    <div class="legend-label">High</div>
+  </div>
+  <div class="price-row" id="priceRow"></div>
+  <div class="status" id="statusText">Hämtar data...</div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+  // ── CONFIG ─────────────────────────────────────────────────
+  // Change AREA to your Nordic bidding zone:
+  //   NO1 Oslo  |  NO2 Kristiansand  |  NO3 Trondheim
+  //   NO4 Tromsø|  NO5 Bergen        |  SE1-SE4 | DK1-DK2 | FI
+  const AREA = 'SE3';
+  // ──────────────────────────────────────────────────────────
+
+  let prices = []; // array of 24 {hour, price} sorted
+
+  // Color: green (low) → yellow → red (high)
+  function priceColor(normalized) {
+    // normalized 0..1
+    const r = Math.round(normalized < 0.5 ? normalized * 2 * 255 : 255);
+    const g = Math.round(normalized < 0.5 ? 230 : (1 - (normalized - 0.5) * 2) * 230);
+    const b = 20;
+    return `rgb(${r},${g},${b})`;
+  }
+
+  function normalize(val, min, max) {
+    if (max === min) return 0.5;
+    return (val - min) / (max - min);
+  }
+
+  async function fetchPrices() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    const url = `https://www.hvakosterstrommen.no/api/v1/prices/${y}/${m}-${d}_${AREA}.json`;
+
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      prices = data.map((p, i) => ({
+        hour: i,
+        price: Math.round(p.NOK_per_kWh * 100)  // øre
+      }));
+      document.getElementById('statusText').textContent =
+        `Updated ${now.toLocaleTimeString('no', {hour:'2-digit',minute:'2-digit'})} · ${AREA}`;
+      buildDots();
+    } catch (e) {
+      document.getElementById('statusText').textContent = 'Could not fetch prices — using demo data';
+      useDemoData();
+    }
+  }
+
+  function useDemoData() {
+    // Typical Norwegian daily shape (öre/kWh)
+    const demo = [18,15,13,12,12,14,22,35,42,38,32,28,26,25,24,26,30,40,45,42,36,30,24,20];
+    prices = demo.map((p, i) => ({ hour: i, price: p }));
+    buildDots();
+  }
+
+  function buildDots() {
+    const row = document.getElementById('priceRow');
+    row.innerHTML = '';
+    const vals = prices.map(p => p.price);
+    const min = Math.min(...vals), max = Math.max(...vals);
+
+    prices.forEach(p => {
+      const wrap = document.createElement('div');
+      wrap.className = 'price-dot-wrap';
+
+      const dot = document.createElement('div');
+      dot.className = 'price-dot';
+      dot.style.background = priceColor(normalize(p.price, min, max));
+      dot.title = `${p.hour}:00 — ${p.price} øre/kWh`;
+
+      dot.addEventListener('mousemove', (e) => {
+        const tt = document.getElementById('tooltip');
+        tt.textContent = `${String(p.hour).padStart(2,'0')}:00  ${p.price} øre/kWh`;
+        tt.style.display = 'block';
+        tt.style.left = (e.clientX + 12) + 'px';
+        tt.style.top = (e.clientY - 28) + 'px';
+      });
+      dot.addEventListener('mouseleave', () => {
+        document.getElementById('tooltip').style.display = 'none';
+      });
+
+      const lbl = document.createElement('div');
+      lbl.className = 'price-dot-label';
+      lbl.textContent = p.hour;
+
+      wrap.appendChild(dot);
+      wrap.appendChild(lbl);
+      row.appendChild(wrap);
+    });
+  }
+
+  // ── Clock drawing ──────────────────────────────────────────
+  function drawClock() {
+    const canvas = document.getElementById('clockCanvas');
+    const ctx = canvas.getContext('2d');
+    const cx = 130, cy = 130, r = 120;
+    ctx.clearRect(0, 0, 260, 260);
+
+    const now = new Date();
+    const h = now.getHours();
+    const m = now.getMinutes();
+    const s = now.getSeconds();
+
+    const vals = prices.map(p => p.price);
+    const min = vals.length ? Math.min(...vals) : 0;
+    const max = vals.length ? Math.max(...vals) : 1;
+
+    // Draw 24 hour bullets around the clock
+    for (let hr = 0; hr < 24; hr++) {
+      const angle = (hr / 24) * Math.PI * 2 - Math.PI / 2;
+      const innerR = 88, outerR = 108;
+      const bx = cx + Math.cos(angle) * ((innerR + outerR) / 2);
+      const by = cy + Math.sin(angle) * ((innerR + outerR) / 2);
+      const priceEntry = prices.find(p => p.hour === hr);
+      const color = priceEntry ? priceColor(normalize(priceEntry.price, min, max)) : '#333';
+
+      // Bullet arc segment
+      ctx.beginPath();
+      const a1 = angle - Math.PI / 24 + 0.04;
+      const a2 = angle + Math.PI / 24 - 0.04;
+      ctx.arc(cx, cy, outerR, a1, a2);
+      ctx.arc(cx, cy, innerR, a2, a1, true);
+      ctx.closePath();
+      ctx.fillStyle = hr === h ? color : color + '88';
+      ctx.fill();
+
+      // Highlight current hour
+      if (hr === h) {
+        ctx.beginPath();
+        ctx.arc(cx, cy, outerR + 4, a1 - 0.02, a2 + 0.02);
+        ctx.arc(cx, cy, outerR + 1, a2 + 0.02, a1 - 0.02, true);
+        ctx.closePath();
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+    }
+
+    // Track ring
+    ctx.beginPath();
+    ctx.arc(cx, cy, 75, 0, Math.PI * 2);
+    ctx.strokeStyle = '#2a2d3a';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Hour hand
+    const hAngle = ((h % 12) + m / 60) / 12 * Math.PI * 2 - Math.PI / 2;
+    drawHand(ctx, cx, cy, hAngle, 45, 5, '#ffffff');
+
+    // Minute hand
+    const mAngle = (m + s / 60) / 60 * Math.PI * 2 - Math.PI / 2;
+    drawHand(ctx, cx, cy, mAngle, 65, 3, '#cccccc');
+
+    // Second hand
+    const sAngle = s / 60 * Math.PI * 2 - Math.PI / 2;
+    drawHand(ctx, cx, cy, sAngle, 68, 1.5, '#ff4444');
+
+    // Center dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+    ctx.fillStyle = '#fff';
+    ctx.fill();
+
+    // Update text
+    document.getElementById('clockTime').textContent =
+      `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+    document.getElementById('clockDate').textContent =
+      now.toLocaleDateString('no', { weekday: 'short', day: 'numeric', month: 'short' });
+
+    const cur = prices.find(p => p.hour === h);
+    document.getElementById('currentPrice').textContent = cur ? cur.price : '--';
+    if (cur) {
+      const norm = normalize(cur.price, min, max);
+      document.getElementById('currentPrice').style.color = priceColor(norm);
+    }
+  }
+
+  function drawHand(ctx, cx, cy, angle, length, width, color) {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(cx + Math.cos(angle) * length, cy + Math.sin(angle) * length);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+  }
+
+  // ── Init ──────────────────────────────────────────────────
+  useDemoData(); // show something immediately
+  fetchPrices(); // then fetch real data
+
+  setInterval(drawClock, 1000);
+  setInterval(fetchPrices, 60 * 60 * 1000); // refresh hourly
+
+  drawClock();
+</script>
+</body>
+</html>
