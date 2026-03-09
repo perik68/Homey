@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YR Weather – Stockholm</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  html, body {
+    width:100%; height:100%;
+    background: transparent;
+    font-family: 'Inter', sans-serif;
+    overflow: hidden;
+  }
+
+  #widget {
+    width:100%; height:100%;
+    min-height: 280px;
+    background: linear-gradient(145deg, #111827 0%, #1a2744 60%, #0f1e3a 100%);
+    border-radius: 18px;
+    padding: 16px 18px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    position: relative;
+    overflow: hidden;
+    color: #f0f6ff;
+  }
+
+  /* subtle glow blob */
+  #widget::after {
+    content:'';
+    position:absolute;
+    top:-40px; right:-40px;
+    width:160px; height:160px;
+    background: radial-gradient(circle, rgba(56,189,248,0.12) 0%, transparent 70%);
+    pointer-events:none;
+  }
+
+  /* ── HEADER ROW ─────────────────────────────────────── */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    position: relative; z-index:1;
+  }
+  .loc-date { display:flex; flex-direction:column; gap:2px; }
+  .loc-name {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #f0f6ff;
+    letter-spacing: 0.01em;
+  }
+  .date-str {
+    font-size: 0.68rem;
+    color: rgba(180,210,255,0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+  }
+  .gear-btn {
+    background: none; border: none;
+    color: rgba(180,210,255,0.35);
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    transition: color 0.2s;
+  }
+  .gear-btn:hover { color: rgba(180,210,255,0.8); }
+
+  /* ── MAIN TEMP SECTION ──────────────────────────────── */
+  .main-section {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    position: relative; z-index:1;
+  }
+
+  .temp-group { display:flex; align-items:baseline; gap:10px; }
+
+  .temp-now {
+    font-size: 3.6rem;
+    font-weight: 700;
+    line-height: 1;
+    color: #ffffff;
+    letter-spacing: -0.03em;
+  }
+  .temp-now .unit { font-size:1.5rem; font-weight:400; color: rgba(180,210,255,0.6); }
+
+  .feels-group { display:flex; flex-direction:column; gap:1px; }
+  .feels-label { font-size:0.6rem; color:rgba(180,210,255,0.5); text-transform:uppercase; letter-spacing:0.08em; }
+  .feels-val {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #38bdf8;
+    letter-spacing: -0.02em;
+  }
+  .feels-val .unit { font-size:0.85rem; font-weight:400; }
+
+  /* icon + condition on the right */
+  .condition-group {
+    display:flex; flex-direction:column; align-items:flex-end; gap:4px;
+  }
+  .wx-icon { font-size: 2.6rem; line-height:1; }
+  .wx-desc {
+    font-size: 0.7rem;
+    color: rgba(180,210,255,0.65);
+    text-align: right;
+    max-width: 90px;
+    line-height: 1.2;
+  }
+
+  /* ── STATS ROW ──────────────────────────────────────── */
+  .stats-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 14px;
+    position: relative; z-index:1;
+  }
+  .stat {
+    flex: 1;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px;
+    padding: 6px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .stat-label { font-size:0.58rem; color:rgba(180,210,255,0.45); text-transform:uppercase; letter-spacing:0.07em; }
+  .stat-val   { font-size:0.82rem; font-weight:600; color:#f0f6ff; }
+
+  /* ── DIVIDER ─────────────────────────────────────────── */
+  .divider {
+    height:1px;
+    background: linear-gradient(90deg, transparent, rgba(100,170,255,0.15), transparent);
+    margin-bottom: 10px;
+    position: relative; z-index:1;
+  }
+
+  /* ── HOURLY STRIP ───────────────────────────────────── */
+  .hourly-label {
+    font-size:0.6rem;
+    color:rgba(180,210,255,0.4);
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    margin-bottom:6px;
+    position:relative; z-index:1;
+  }
+
+  .hourly-strip {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    position: relative; z-index:1;
+    overflow: hidden;
+  }
+
+  .h-col {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    min-width: 0;
+  }
+
+  .h-time {
+    font-size: 0.58rem;
+    color: rgba(180,210,255,0.45);
+    white-space: nowrap;
+  }
+  .h-time.now { color: #fbbf24; font-weight:700; }
+
+  .h-icon { font-size: 0.9rem; line-height:1; }
+
+  .h-bar-track {
+    width: 100%;
+    height: 36px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    position: relative;
+  }
+  .h-bar {
+    width: 60%;
+    border-radius: 3px 3px 2px 2px;
+    background: linear-gradient(180deg, #38bdf8 0%, rgba(56,189,248,0.2) 100%);
+    min-height: 3px;
+    transition: height 0.5s ease;
+  }
+  .h-bar.now-bar {
+    background: linear-gradient(180deg, #fbbf24 0%, rgba(251,191,36,0.25) 100%);
+    box-shadow: 0 0 6px rgba(251,191,36,0.35);
+  }
+  .h-precip-dot {
+    position: absolute;
+    bottom: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: #60a5fa;
+  }
+
+  .h-temp {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #e2eeff;
+    white-space: nowrap;
+  }
+  .h-temp.now { color: #fbbf24; }
+
+  /* ── FOOTER ─────────────────────────────────────────── */
+  .footer {
+    display:flex;
+    justify-content:space-between;
+    margin-top: 8px;
+    position:relative; z-index:1;
+  }
+  .updated { font-size:0.58rem; color:rgba(180,210,255,0.3); }
+  .yr-badge { font-size:0.58rem; color:rgba(180,210,255,0.3); }
+  .yr-badge b { color: #38bdf8; font-weight:500; }
+
+  /* ── LOADING / ERROR ────────────────────────────────── */
+  .overlay-state {
+    position:absolute; inset:0;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:10px; z-index:10;
+    background: linear-gradient(145deg,#111827,#1a2744,#0f1e3a);
+    border-radius:18px;
+    font-size:0.8rem;
+    color:rgba(180,210,255,0.6);
+  }
+  .spinner {
+    width:26px; height:26px;
+    border:2px solid rgba(56,189,248,0.2);
+    border-top-color:#38bdf8;
+    border-radius:50%;
+    animation:spin 0.75s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .err-sub { font-size:0.65rem; color:rgba(180,210,255,0.4); text-align:center; max-width:80%; line-height:1.5; }
+
+  /* ── CONFIG OVERLAY ─────────────────────────────────── */
+  #config-overlay {
+    position:absolute; inset:0;
+    background:rgba(10,18,32,0.97);
+    border-radius:18px;
+    z-index:20;
+    display:flex; flex-direction:column;
+    align-items:center; justify-content:center;
+    gap:10px; padding:20px;
+  }
+  #config-overlay h3 { font-size:1rem; color:#f0f6ff; font-weight:600; }
+  #config-overlay p  { font-size:0.68rem; color:rgba(180,210,255,0.5); text-align:center; line-height:1.5; }
+  .cfg-row { display:flex; flex-direction:column; gap:3px; width:100%; }
+  .cfg-row label { font-size:0.6rem; text-transform:uppercase; letter-spacing:0.08em; color:rgba(180,210,255,0.45); }
+  .cfg-row input {
+    background:rgba(255,255,255,0.06);
+    border:1px solid rgba(100,170,255,0.15);
+    border-radius:8px; padding:7px 10px;
+    color:#f0f6ff; font-family:'Inter',sans-serif; font-size:0.82rem;
+    width:100%; outline:none;
+  }
+  .cfg-row input:focus { border-color:#38bdf8; }
+  .cfg-btn {
+    background:#38bdf8; color:#0f1e3a; border:none; border-radius:9px;
+    padding:9px 24px; font-family:'Inter',sans-serif; font-size:0.82rem;
+    font-weight:700; cursor:pointer; margin-top:2px; transition:opacity 0.2s;
+  }
+  .cfg-btn:hover { opacity:0.85; }
+</style>
+</head>
+<body>
+<div id="widget">
+
+  <!-- Config overlay -->
+  <div id="config-overlay">
+    <h3>📍 Location</h3>
+    <p>Set coordinates to load live weather from YR.no</p>
+    <div class="cfg-row"><label>Name</label><input id="cfg-name" value="Stockholm"></div>
+    <div class="cfg-row"><label>Latitude</label><input id="cfg-lat" type="number" step="0.0001" value="59.3293"></div>
+    <div class="cfg-row"><label>Longitude</label><input id="cfg-lon" type="number" step="0.0001" value="18.0686"></div>
+    <button class="cfg-btn" id="cfgSave">Load Weather</button>
+  </div>
+
+  <!-- Loading -->
+  <div class="overlay-state" id="loading" style="display:none">
+    <div class="spinner"></div><span>Fetching forecast…</span>
+  </div>
+
+  <!-- Error -->
+  <div class="overlay-state" id="error-msg" style="display:none">
+    <div style="font-size:1.6rem">⚠️</div>
+    <div>Could not load weather</div>
+    <div class="err-sub" id="err-detail"></div>
+  </div>
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="loc-date">
+      <div class="loc-name" id="loc-name">Stockholm</div>
+      <div class="date-str" id="date-str">—</div>
+    </div>
+    <button class="gear-btn" id="gearBtn">⚙️</button>
+  </div>
+
+  <!-- MAIN: temp + condition -->
+  <div class="main-section">
+    <div class="temp-group">
+      <div class="temp-now" id="temp-now">—<span class="unit">°C</span></div>
+      <div class="feels-group">
+        <div class="feels-label">Känns som</div>
+        <div class="feels-val" id="temp-feels">—<span class="unit">°</span></div>
+      </div>
+    </div>
+    <div class="condition-group">
+      <div class="wx-icon" id="wx-icon">🌡️</div>
+      <div class="wx-desc" id="wx-desc">—</div>
+    </div>
+  </div>
+
+  <!-- STATS ROW -->
+  <div class="stats-row">
+    <div class="stat"><div class="stat-label">Vind</div><div class="stat-val" id="s-wind">—</div></div>
+    <div class="stat"><div class="stat-label">Luftfuktighet</div><div class="stat-val" id="s-hum">—</div></div>
+    <div class="stat"><div class="stat-label">Nederbörd</div><div class="stat-val" id="s-precip">—</div></div>
+    <div class="stat"><div class="stat-label">Lufttryck</div><div class="stat-val" id="s-pres">—</div></div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- HOURLY -->
+  <div class="hourly-label">Prognos per timme</div>
+  <div class="hourly-strip" id="hourly-strip"></div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="updated" id="updated">—</div>
+    <div class="yr-badge">Data: <b>YR.no</b> / Met Norway</div>
+  </div>
+
+</div>
+<script>
+// ── CONFIG ───────────────────────────────────────────────────
+let CFG = {
+  name: localStorage.getItem('yrw_name') || 'Stockholm',
+  lat:  parseFloat(localStorage.getItem('yrw_lat'))  || 59.3293,
+  lon:  parseFloat(localStorage.getItem('yrw_lon'))  || 18.0686,
+};
+
+// ── SYMBOLS ──────────────────────────────────────────────────
+const SYM = {
+  clearsky:['☀️','Klart'], fair:['🌤️','Lätta skyar'],
+  partlycloudy:['⛅','Växlande molninghet'], cloudy:['☁️','Molnigt'],
+  fog:['🌫️','Dimma'],
+  lightrain:['🌦️','Lätt regn'], rain:['🌧️','Regn'], heavyrain:['🌧️','Kraftigt regn'],
+  lightrainshowers:['🌦️','Lätta skurar'], rainshowers:['🌧️','Skurar'], heavyrainshowers:['🌧️','Kraftiga skurar'],
+  lightsleet:['🌨️','Lätt snöblandat regn'], sleet:['🌨️','Snöblandat regn'], heavysleet:['🌨️','Kraftigt snöblandat regn'],
+  lightsnow:['🌨️','Lätt snöfall'], snow:['❄️','Snöfall'], heavysnow:['❄️','Kraftigt snöfall'],
+  lightsnowshowers:['🌨️','Lätta snöbyar'], snowshowers:['❄️','Snöbyar'],
+  thunderstorm:['⛈️','Kraftig åska'], lightrainandthunder:['⛈️','Lätt åska'], rainandthunder:['⛈️','Åska'],
+};
+function sym(code) {
+  if (!code) return ['🌡️','—'];
+  return SYM[code.replace(/_day|_night|_polartwilight/,'')] || ['🌡️', code.split('_')[0]];
+}
+
+// ── FEELS LIKE ───────────────────────────────────────────────
+function feelsLike(t, ws, rh) {
+  if (t <= 10 && ws > 1.3) {
+    const v = ws * 3.6;
+    return 13.12 + 0.6215*t - 11.37*Math.pow(v,0.16) + 0.3965*t*Math.pow(v,0.16);
+  }
+  if (t >= 27) {
+    const F = t*9/5+32;
+    const HI = -42.379+2.04901523*F+10.14333127*rh-0.22475541*F*rh-0.00683783*F*F
+               -0.05481717*rh*rh+0.00122874*F*F*rh+0.00085282*F*rh*rh-0.00000199*F*F*rh*rh;
+    return (HI-32)*5/9;
+  }
+  return t;
+}
+
+// ── GEAR / CONFIG ─────────────────────────────────────────────
+const overlay = document.getElementById('config-overlay');
+document.getElementById('gearBtn').onclick = () => {
+  document.getElementById('cfg-name').value = CFG.name;
+  document.getElementById('cfg-lat').value  = CFG.lat;
+  document.getElementById('cfg-lon').value  = CFG.lon;
+  overlay.style.display = 'flex';
+};
+document.getElementById('cfgSave').onclick = () => {
+  const n  = document.getElementById('cfg-name').value.trim();
+  const la = parseFloat(document.getElementById('cfg-lat').value);
+  const lo = parseFloat(document.getElementById('cfg-lon').value);
+  if (!n || isNaN(la) || isNaN(lo)) return alert('Fill in all fields.');
+  CFG = {name:n, lat:la, lon:lo};
+  localStorage.setItem('yrw_name',n);
+  localStorage.setItem('yrw_lat',la);
+  localStorage.setItem('yrw_lon',lo);
+  overlay.style.display = 'none';
+  fetchWeather();
+};
+
+// ── FETCH ─────────────────────────────────────────────────────
+async function fetchWeather() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('error-msg').style.display = 'none';
+  try {
+    const r = await fetch(
+      `https://api.met.no/weatherapi/locationforecast/2.0/complete?lat=${CFG.lat.toFixed(4)}&lon=${CFG.lon.toFixed(4)}`,
+      { headers:{'User-Agent':'HomeyYRWidget/2.0'} }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    render(await r.json());
+  } catch(e) {
+    document.getElementById('loading').style.display = 'none';
+    document.getElementById('err-detail').textContent = e.message;
+    document.getElementById('error-msg').style.display = 'flex';
+  }
+}
+
+// ── RENDER ────────────────────────────────────────────────────
+function render(data) {
+  document.getElementById('loading').style.display = 'none';
+  const now      = new Date();
+  const todayStr = now.toISOString().slice(0,10);
+  const series   = data.properties.timeseries;
+
+  // Current entry (closest to now)
+  const cur = series.reduce((b,s) =>
+    Math.abs(new Date(s.time)-now) < Math.abs(new Date(b.time)-now) ? s : b, series[0]);
+
+  const d  = cur.data.instant.details;
+  const n1 = cur.data.next_1_hours || cur.data.next_6_hours || {};
+  const [icon, desc] = sym(n1.summary?.symbol_code || '');
+
+  const tNow  = Math.round(d.air_temperature);
+  const tFeel = Math.round(feelsLike(d.air_temperature, d.wind_speed||0, d.relative_humidity||0));
+  const precip = n1.details?.precipitation_amount || 0;
+
+  // Header
+  document.getElementById('loc-name').textContent = CFG.name;
+  document.getElementById('date-str').textContent =
+    now.toLocaleDateString('sv-SE', {weekday:'long', day:'numeric', month:'long'});
+
+  // Temps
+  document.getElementById('temp-now').innerHTML   = `${tNow}<span class="unit">°C</span>`;
+  document.getElementById('temp-feels').innerHTML = `${tFeel}<span class="unit">°</span>`;
+  document.getElementById('wx-icon').textContent  = icon;
+  document.getElementById('wx-desc').textContent  = desc;
+
+  // Stats
+  document.getElementById('s-wind').textContent   = `${Math.round(d.wind_speed||0)} m/s`;
+  document.getElementById('s-hum').textContent    = `${Math.round(d.relative_humidity||0)}%`;
+  document.getElementById('s-precip').textContent = precip > 0 ? `${precip.toFixed(1)} mm` : '0 mm';
+  document.getElementById('s-pres').textContent   = d.air_pressure_at_sea_level
+    ? `${Math.round(d.air_pressure_at_sea_level)} hPa` : '—';
+
+  // Hourly strip — today only, max 13 cols
+  const today = series.filter(s => s.time.startsWith(todayStr)).slice(0, 13);
+  const temps  = today.map(s => s.data.instant.details.air_temperature);
+  const minT   = Math.min(...temps), maxT = Math.max(...temps);
+  const range  = maxT - minT || 1;
+  const nowH   = now.getHours();
+
+  const strip = document.getElementById('hourly-strip');
+  strip.innerHTML = '';
+  today.forEach(entry => {
+    const t   = new Date(entry.time);
+    const h   = t.getHours();
+    const tmp = entry.data.instant.details.air_temperature;
+    const nx  = entry.data.next_1_hours || entry.data.next_6_hours || {};
+    const [ico] = sym(nx.summary?.symbol_code||'');
+    const pr  = nx.details?.precipitation_amount || 0;
+    const isNow = h === nowH;
+    const barH  = Math.round(((tmp - minT) / range) * 28 + 6);
+
+    const col = document.createElement('div');
+    col.className = 'h-col';
+    col.innerHTML = `
+      <div class="h-temp${isNow?' now':''}">${Math.round(tmp)}°</div>
+      <div class="h-bar-track">
+        <div class="h-bar${isNow?' now-bar':''}" style="height:${barH}px"></div>
+        ${pr > 0 ? '<div class="h-precip-dot"></div>' : ''}
+      </div>
+      <div class="h-icon">${ico}</div>
+      <div class="h-time${isNow?' now':''}">${isNow?'NU':String(h).padStart(2,'0')}</div>
+    `;
+    strip.appendChild(col);
+  });
+
+  document.getElementById('updated').textContent =
+    'Senast uppdaterad ' + now.toLocaleTimeString('sv-SE',{hour:'2-digit',minute:'2-digit'});
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+overlay.style.display = 'none';
+fetchWeather();
+setInterval(fetchWeather, 10 * 60 * 1000);
+</script>
+</body>
+</html>
