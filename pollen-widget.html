@@ -10,396 +10,300 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:        #0f1117;
-    --surface:   #181c25;
-    --border:    #252a35;
-    --text-pri:  #e8eaf0;
-    --text-sec:  #8891a8;
-    --text-dim:  #4a5068;
-
-    --c-none:    #1e2230;
-    --c-none-fg: #4a5068;
-    --c-low:     #1a3a2a;
-    --c-low-fg:  #4ade80;
-    --c-lm:      #2a3520;
-    --c-lm-fg:   #a3e635;
-    --c-med:     #3a3010;
-    --c-med-fg:  #facc15;
-    --c-mh:      #3a2010;
-    --c-mh-fg:   #fb923c;
-    --c-high:    #3a1515;
-    --c-high-fg: #f87171;
-    --c-vhigh:   #3a0f1a;
-    --c-vhigh-fg:#e879f9;
-
-    --radius: 8px;
+    --bg:       #0f1117;
+    --surface:  #181c25;
+    --border:   #252a35;
+    --text-pri: #e8eaf0;
+    --text-sec: #8891a8;
+    --text-dim: #4a5068;
   }
 
-  html, body {
-    width: 100%; height: 100%;
-    background: var(--bg);
-    font-family: 'DM Sans', sans-serif;
-    color: var(--text-pri);
-    font-size: 13px;
-    -webkit-font-smoothing: antialiased;
-  }
+  html, body { width:100%; min-height:100%; background:var(--bg);
+    font-family:'DM Sans',sans-serif; color:var(--text-pri);
+    font-size:13px; -webkit-font-smoothing:antialiased; }
 
-  .widget {
-    padding: 14px 14px 12px;
-    min-height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
+  .widget { padding:14px 14px 12px; display:flex; flex-direction:column; gap:10px; }
 
   /* ── Header ── */
-  .header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .pollen-icon {
-    width: 28px; height: 28px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #2a4a2a 0%, #1a3a2a 100%);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 14px;
-    border: 1px solid #2d5a2d;
-    flex-shrink: 0;
-  }
-  .header-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text-pri);
-    letter-spacing: 0.02em;
-  }
-  .header-sub {
-    font-size: 10px;
-    color: var(--text-sec);
-    margin-top: 1px;
-  }
-  .refresh-btn {
-    background: none; border: none; cursor: pointer;
-    color: var(--text-dim);
-    padding: 4px;
-    border-radius: 4px;
-    transition: color 0.2s;
-    font-size: 13px;
-    line-height: 1;
-  }
-  .refresh-btn:hover { color: var(--text-sec); }
-  .refresh-btn.spinning { animation: spin 0.8s linear infinite; }
-  @keyframes spin { to { transform: rotate(360deg); } }
+  .header { display:flex; align-items:center; justify-content:space-between; }
+  .header-left { display:flex; align-items:center; gap:8px; }
+  .icon { width:28px; height:28px; border-radius:50%;
+    background:linear-gradient(135deg,#1f3d1f,#0f2a1a);
+    border:1px solid #2a5a2a; display:flex; align-items:center;
+    justify-content:center; font-size:14px; flex-shrink:0; }
+  .title  { font-size:13px; font-weight:600; letter-spacing:.02em; }
+  .subtitle { font-size:10px; color:var(--text-sec); margin-top:1px; }
+  .refresh-btn { background:none; border:none; cursor:pointer;
+    color:var(--text-dim); padding:5px; border-radius:4px;
+    font-size:15px; line-height:1; transition:color .2s; }
+  .refresh-btn:hover { color:var(--text-sec); }
+  .refresh-btn.spin { animation:spin .7s linear infinite; display:inline-block; }
+  @keyframes spin { to { transform:rotate(360deg); } }
 
-  /* ── Day columns header ── */
-  .day-headers {
-    display: grid;
-    grid-template-columns: 80px repeat(4, 1fr);
-    gap: 3px;
-    padding: 0 2px;
+  /* ── Grid layout helper ── */
+  .day-grid, .pollen-row {
+    display:grid; gap:3px;
   }
-  .day-header {
-    text-align: center;
-    padding: 5px 3px 4px;
-    border-radius: var(--radius);
-    background: var(--surface);
-    border: 1px solid var(--border);
-  }
-  .day-header.today {
-    background: #1a2a1a;
-    border-color: #2d5a2d;
-  }
-  .day-name {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-pri);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    line-height: 1;
-  }
-  .day-date {
-    font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    color: var(--text-dim);
-    margin-top: 2px;
-    line-height: 1;
-  }
-  .day-header.today .day-name { color: #4ade80; }
-  .day-header.today .day-date { color: #2a6a3a; }
 
-  /* ── Pollen rows ── */
-  .pollen-list {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-  .pollen-row {
-    display: grid;
-    grid-template-columns: 80px repeat(4, 1fr);
-    gap: 3px;
-    align-items: center;
-  }
-  .pollen-name {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-sec);
-    padding: 0 4px 0 2px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .level-cell {
-    border-radius: 5px;
-    padding: 5px 3px;
-    text-align: center;
-    font-size: 10px;
-    font-weight: 600;
-    font-family: 'DM Mono', monospace;
-    letter-spacing: 0.01em;
-    transition: transform 0.15s;
-  }
-  .level-cell:not(.c-none):hover { transform: scale(1.06); }
+  /* ── Day column headers ── */
+  .day-hdr { text-align:center; padding:5px 2px 4px;
+    border-radius:7px; background:var(--surface); border:1px solid var(--border); }
+  .day-hdr.today { background:#0f2318; border-color:#2a5a2a; }
+  .day-name { font-size:10px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.04em; color:var(--text-pri); line-height:1; }
+  .day-date { font-family:'DM Mono',monospace; font-size:9px;
+    color:var(--text-dim); margin-top:2px; line-height:1; }
+  .day-hdr.today .day-name { color:#4ade80; }
+  .day-hdr.today .day-date { color:#2a6a3a; }
 
-  .c-none  { background: var(--c-none);  color: var(--c-none-fg);  }
-  .c-low   { background: var(--c-low);   color: var(--c-low-fg);   }
-  .c-lm    { background: var(--c-lm);    color: var(--c-lm-fg);    }
-  .c-med   { background: var(--c-med);   color: var(--c-med-fg);   }
-  .c-mh    { background: var(--c-mh);    color: var(--c-mh-fg);    }
-  .c-high  { background: var(--c-high);  color: var(--c-high-fg);  }
-  .c-vhigh { background: var(--c-vhigh); color: var(--c-vhigh-fg); }
+  /* ── Pollen name column ── */
+  .pollen-name { font-size:11px; font-weight:500; color:var(--text-sec);
+    padding:0 4px 0 2px; white-space:nowrap; overflow:hidden;
+    text-overflow:ellipsis; display:flex; align-items:center; }
+
+  /* ── Level cells ── */
+  .cell { border-radius:5px; padding:5px 2px; text-align:center;
+    font-size:10px; font-weight:600; font-family:'DM Mono',monospace;
+    cursor:default; transition:transform .12s; }
+  .cell:not(.lv0):hover { transform:scale(1.08); }
+  .lv0 { background:#1a1e28; color:#3a4060; }
+  .lv1 { background:#0f2d1f; color:#4ade80; }
+  .lv2 { background:#1f2e0a; color:#a3e635; }
+  .lv3 { background:#2e2500; color:#facc15; }
+  .lv4 { background:#2e1800; color:#fb923c; }
+  .lv5 { background:#2e0a0a; color:#f87171; }
 
   /* ── Legend ── */
-  .legend {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    padding: 8px 4px 2px;
-    border-top: 1px solid var(--border);
-  }
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 9px;
-    color: var(--text-dim);
-    font-family: 'DM Mono', monospace;
-  }
-  .legend-dot {
-    width: 7px; height: 7px;
-    border-radius: 2px;
-    flex-shrink: 0;
-  }
+  .legend { display:flex; gap:7px; flex-wrap:wrap; padding:8px 3px 2px;
+    border-top:1px solid var(--border); }
+  .leg-item { display:flex; align-items:center; gap:4px;
+    font-size:9px; color:var(--text-dim); font-family:'DM Mono',monospace; }
+  .leg-dot { width:7px; height:7px; border-radius:2px; flex-shrink:0; }
 
-  /* ── States ── */
-  .status {
-    text-align: center;
-    color: var(--text-dim);
-    font-size: 11px;
-    padding: 20px 0;
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-  }
-  .status-icon { font-size: 22px; }
-  .status.error .status-msg { color: #f87171; font-size: 10px; max-width: 200px; text-align: center; }
+  /* ── Footer ── */
+  .footer { font-size:9px; color:var(--text-dim); text-align:right;
+    font-family:'DM Mono',monospace; padding-right:2px; }
 
-  /* ── Updated timestamp ── */
-  .footer {
-    font-size: 9px;
-    color: var(--text-dim);
-    text-align: right;
-    font-family: 'DM Mono', monospace;
-    padding-right: 2px;
-  }
+  /* ── Status / loading ── */
+  .status { text-align:center; padding:22px 0; display:flex;
+    flex-direction:column; align-items:center; gap:8px; }
+  .status-icon { font-size:22px; }
+  .status-msg  { font-size:11px; color:var(--text-dim); max-width:230px; line-height:1.5; }
+  .status-msg.err { color:#f87171; }
 
   /* ── Skeleton loader ── */
-  .skeleton {
-    border-radius: 4px;
-    background: linear-gradient(90deg, var(--surface) 25%, #20263a 50%, var(--surface) 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-  }
-  @keyframes shimmer { to { background-position: -200% 0; } }
+  .sk { border-radius:4px;
+    background:linear-gradient(90deg,var(--surface) 25%,#1e2435 50%,var(--surface) 75%);
+    background-size:200% 100%; animation:shimmer 1.5s infinite; }
+  @keyframes shimmer { to { background-position:-200% 0; } }
 </style>
 </head>
 <body>
-<div class="widget" id="root">
+<div class="widget">
+
   <div class="header">
     <div class="header-left">
-      <div class="pollen-icon">🌿</div>
+      <div class="icon">🌿</div>
       <div>
-        <div class="header-title">Pollenprognos</div>
-        <div class="header-sub" id="city-label">Hämtar data…</div>
+        <div class="title">Pollenprognos</div>
+        <div class="subtitle" id="sub">Hämtar data…</div>
       </div>
     </div>
-    <button class="refresh-btn" id="refresh-btn" title="Uppdatera" onclick="loadData()">↺</button>
+    <button class="refresh-btn" id="refreshBtn" title="Uppdatera" onclick="init()">↺</button>
   </div>
 
   <div id="content">
     <div class="status">
-      <div class="status-icon skeleton" style="width:28px;height:28px;border-radius:50%"></div>
-      <div class="skeleton" style="width:120px;height:10px;margin-top:6px"></div>
+      <div class="sk" style="width:28px;height:28px;border-radius:50%"></div>
+      <div class="sk" style="width:140px;height:10px;margin-top:4px"></div>
     </div>
   </div>
 
   <div class="footer" id="footer"></div>
+
 </div>
-
 <script>
-// ── CONFIG ──────────────────────────────────────────
-const CITY_ID   = 94;          // Stockholm = 94. Find yours at pollenkoll.se/wp-content/themes/pollenkoll/api/get_cities.php
-const API_URL   = 'https://pollenkoll.se/wp-content/themes/pollenkoll/api/get_cities.php';
-const PROXY     = 'https://corsproxy.io/?url=';
-const REFRESH_MS = 6 * 60 * 60 * 1000;  // 6 hours
-// ────────────────────────────────────────────────────
+// ── CONFIG ──────────────────────────────────────────────────────────
+const REGION_NAME = 'Stockholm';   // must match a region name returned by the API
+const REFRESH_MS  = 6 * 60 * 60 * 1000;
+const BASE        = 'https://api.pollenrapporten.se/v1';
+const PROXY       = 'https://corsproxy.io/?url=';
+// ────────────────────────────────────────────────────────────────────
 
-const LEVEL_MAP = {
-  'i.u.': { cls: 'c-none', label: '–' },
-  'i.h.': { cls: 'c-none', label: '–' },
-  '-':    { cls: 'c-none', label: '–' },
-  'L':    { cls: 'c-low',  label: 'L'   },
-  'L-M':  { cls: 'c-lm',   label: 'L-M' },
-  'M':    { cls: 'c-med',  label: 'M'   },
-  'M-H':  { cls: 'c-mh',   label: 'M-H' },
-  'H':    { cls: 'c-high', label: 'H'   },
-  'H-H+': { cls: 'c-vhigh',label: 'H+' },
-};
+const DAY_SV = ['Sön','Mån','Tis','Ons','Tor','Fre','Lör'];
 
-const LEGEND = [
-  { cls:'c-low',  bg:'#1a3a2a', fg:'#4ade80',  label:'L – Låg' },
-  { cls:'c-lm',   bg:'#2a3520', fg:'#a3e635',  label:'L-M' },
-  { cls:'c-med',  bg:'#3a3010', fg:'#facc15',  label:'M – Medel' },
-  { cls:'c-mh',   bg:'#3a2010', fg:'#fb923c',  label:'M-H' },
-  { cls:'c-high', bg:'#3a1515', fg:'#f87171',  label:'H – Hög' },
-  { cls:'c-vhigh',bg:'#3a0f1a', fg:'#e879f9',  label:'H+' },
-];
-
-function levelInfo(raw) {
-  if (!raw) return LEVEL_MAP['i.u.'];
-  const key = raw.trim();
-  return LEVEL_MAP[key] || { cls: 'c-none', label: key };
-}
-
-function shortDay(name) {
-  // Abbreviate Swedish day names
-  const map = { 'Måndag':'Mån','Tisdag':'Tis','Onsdag':'Ons','Torsdag':'Tor',
-                 'Fredag':'Fre','Lördag':'Lör','Söndag':'Sön' };
-  return map[name] || (name ? name.slice(0, 3) : '');
-}
-
-function fmtDate(dateStr) {
-  if (!dateStr) return '';
-  const parts = dateStr.split('-');
-  if (parts.length < 3) return dateStr;
-  return `${parts[2]}/${parts[1]}`;
-}
-
-async function loadData() {
-  const btn = document.getElementById('refresh-btn');
-  btn.classList.add('spinning');
-
+// Try direct first (API supports CORS), fall back to proxy
+async function apiFetch(path) {
+  const url = BASE + path;
+  let res;
   try {
-    const res = await fetch(PROXY + encodeURIComponent(API_URL), { cache: 'no-store' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const cities = await res.json();
-
-    const city = Array.isArray(cities)
-      ? cities.find(c => c.cityid == CITY_ID)
-      : null;
-
-    if (!city) throw new Error(`Stad ${CITY_ID} hittades inte`);
-
-    renderWidget(city);
-    document.getElementById('footer').textContent =
-      'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE', { hour:'2-digit', minute:'2-digit' });
-
-  } catch (err) {
-    document.getElementById('content').innerHTML = `
-      <div class="status error">
-        <div class="status-icon">⚠️</div>
-        <div class="status-msg">Kunde inte hämta data.<br>${err.message}</div>
-      </div>`;
-    document.getElementById('footer').textContent = 'Fel vid hämtning';
-  } finally {
-    btn.classList.remove('spinning');
-  }
+    res = await fetch(url, { cache:'no-store' });
+    if (res.ok) return res.json();
+  } catch (_) { /* fall through */ }
+  // Proxy fallback
+  res = await fetch(PROXY + encodeURIComponent(url), { cache:'no-store' });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+  return res.json();
 }
 
-function renderWidget(city) {
-  document.getElementById('city-label').textContent = city.name + ' · Pollenrapporten';
+// Convert a numeric pollen count → level 0-5 using the type's thresholds
+function getLevel(count, pt) {
+  if (count === null || count === undefined || count < 0) return 0;
+  if (count === 0)          return 0;
+  if (count < pt.thresholdLow)      return 0;
+  if (count < pt.thresholdMedium)   return 1;   // Låg
+  if (count < pt.thresholdHigh)     return 2;   // Medel
+  if (count < pt.thresholdVeryHigh) return 3;   // Hög
+  return 4;                                      // Mycket hög
+}
 
-  const pollen = city.pollen || [];
+const LV_LABEL = ['–','L','M','H','H+'];
+const LV_TIP   = ['Ingen/saknas','Låg','Medel','Hög','Mycket hög'];
 
-  // Filter: only show rows that have at least one non-zero day
-  const activeRows = pollen.filter(p => {
-    for (let d = 0; d < 4; d++) {
-      const v = (p[`day${d}_value`] || '').trim();
-      if (v && v !== 'i.u.' && v !== 'i.h.' && v !== '-') return true;
-    }
-    return true; // show all rows always – comment this line to hide empty ones
+function renderWidget(regionName, pollenTypes, forecasts) {
+
+  // Map pollenId → type object
+  const ptMap = {};
+  pollenTypes.forEach(pt => { ptMap[pt.id] = pt; });
+
+  // ── Group forecast items ──────────────────────────────────────────
+  // Expected item fields: pollen_id, date (ISO string), level (numeric count)
+  const dateSet = new Set();
+  const grid = {};   // grid[pollenId][dateStr] = level count
+
+  forecasts.forEach(fc => {
+    const dateStr = (fc.date || fc.forecast_date || '').slice(0, 10);
+    if (!dateStr) return;
+    // Accept any field that looks like a numeric pollen count
+    const count = fc.level ?? fc.levelCount ?? fc.count ?? fc.value ?? null;
+    dateSet.add(dateStr);
+    if (!grid[fc.pollen_id]) grid[fc.pollen_id] = {};
+    grid[fc.pollen_id][dateStr] = count;
   });
 
-  // Build day headers from day0 data of first pollen entry
-  const firstP = pollen[0] || {};
-  const dayHeaders = [0,1,2,3].map(d => ({
-    name:     firstP[`day${d}_name`]     || '',
-    date:     firstP[`day${d}_date`]     || '',
-    relative: firstP[`day${d}_relative_date`] || '',
-  }));
+  const today = new Date().toISOString().slice(0, 10);
+  const dates = Array.from(dateSet).sort().slice(0, 5);
+  const numCols = Math.max(dates.length, 1);
+  const GCOLS = `80px repeat(${numCols}, 1fr)`;
+
+  // Only show types that have forecast data and are forecast-enabled
+  const activeTypes = pollenTypes.filter(
+    pt => pt.hasForecasts && grid[pt.id] && Object.keys(grid[pt.id]).length > 0
+  );
 
   let html = '';
 
-  // Day column headers
-  html += '<div class="day-headers">';
-  html += '<div></div>'; // empty label col
-  dayHeaders.forEach((dh, i) => {
-    const isToday = i === 0;
-    html += `<div class="day-header${isToday ? ' today' : ''}">
-      <div class="day-name">${isToday ? 'Idag' : shortDay(dh.name)}</div>
-      <div class="day-date">${fmtDate(dh.date)}</div>
-    </div>`;
+  // ── Day headers ───────────────────────────────────────────────────
+  html += `<div class="day-grid" style="grid-template-columns:${GCOLS}">`;
+  html += '<div></div>';
+  dates.forEach(d => {
+    const isToday = (d === today);
+    const dt      = new Date(d + 'T12:00:00');
+    const dayName = isToday ? 'Idag' : DAY_SV[dt.getDay()];
+    const dayDate = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
+    html += `<div class="day-hdr${isToday ? ' today' : ''}">
+               <div class="day-name">${dayName}</div>
+               <div class="day-date">${dayDate}</div>
+             </div>`;
   });
   html += '</div>';
 
-  // Pollen rows
-  html += '<div class="pollen-list">';
-  activeRows.forEach(p => {
-    html += `<div class="pollen-row">
-      <div class="pollen-name" title="${p.type}">${p.type}</div>`;
-    for (let d = 0; d < 4; d++) {
-      const raw = (p[`day${d}_value`] || '').trim();
-      const desc = p[`day${d}_desc`] || '';
-      const info = levelInfo(raw);
-      html += `<div class="level-cell ${info.cls}" title="${desc || raw}">${info.label}</div>`;
-    }
-    html += '</div>';
-  });
+  // ── Pollen rows ───────────────────────────────────────────────────
+  html += '<div style="display:flex;flex-direction:column;gap:3px">';
+
+  if (activeTypes.length === 0) {
+    html += `<div class="status">
+               <div class="status-msg">
+                 Ingen prognosdata för ${regionName} just nu.<br>
+                 Prova igen senare.
+               </div>
+             </div>`;
+  } else {
+    activeTypes.forEach(pt => {
+      html += `<div class="pollen-row" style="grid-template-columns:${GCOLS}">
+                 <div class="pollen-name" title="${pt.name}">${pt.name}</div>`;
+      dates.forEach(d => {
+        const count = grid[pt.id]?.[d];
+        const lv    = getLevel(count, pt);
+        const tip   = `${pt.name} ${d}: ${LV_TIP[lv]}${count != null ? ` (${count})` : ''}`;
+        html += `<div class="cell lv${lv}" title="${tip}">${LV_LABEL[lv]}</div>`;
+      });
+      html += '</div>';
+    });
+  }
   html += '</div>';
 
-  // Legend
+  // ── Legend ────────────────────────────────────────────────────────
+  const LEGEND = [
+    { col:'#4ade80', label:'L – Låg' },
+    { col:'#facc15', label:'M – Medel' },
+    { col:'#fb923c', label:'H – Hög' },
+    { col:'#f87171', label:'H+' },
+  ];
   html += '<div class="legend">';
-  LEGEND.forEach(l => {
-    html += `<div class="legend-item">
-      <div class="legend-dot" style="background:${l.fg};opacity:0.8"></div>
-      <span>${l.label}</span>
-    </div>`;
-  });
+  LEGEND.forEach(l =>
+    html += `<div class="leg-item">
+               <div class="leg-dot" style="background:${l.col};opacity:.8"></div>
+               <span>${l.label}</span>
+             </div>`
+  );
   html += '</div>';
 
-  document.getElementById('content').innerHTML = html;
+  document.getElementById('content').innerHTML  = html;
+  document.getElementById('sub').textContent    = `${regionName} · Pollenrapporten`;
+  document.getElementById('footer').textContent =
+    'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE',{ hour:'2-digit', minute:'2-digit' });
 }
 
-// Initial load + auto-refresh
-loadData();
-setInterval(loadData, REFRESH_MS);
+// ── Bootstrap ─────────────────────────────────────────────────────────
+async function init() {
+  const btn = document.getElementById('refreshBtn');
+  btn.classList.add('spin');
+  document.getElementById('sub').textContent = 'Hämtar data…';
+
+  try {
+    // Parallel fetch: pollen types + regions list
+    const [typesData, regionsData] = await Promise.all([
+      apiFetch('/pollen-types?offset=0&limit=100'),
+      apiFetch('/regions?offset=0&limit=100'),
+    ]);
+
+    const pollenTypes = typesData.items  || [];
+    const regions     = regionsData.items || [];
+
+    // Find our target region (case-insensitive substring match)
+    const region = regions.find(r =>
+      (r.name || '').toLowerCase().includes(REGION_NAME.toLowerCase())
+    );
+    if (!region) {
+      const names = regions.map(r => r.name).join(', ');
+      throw new Error(`"${REGION_NAME}" ej hittad. Tillgängliga regioner: ${names || 'inga'}`);
+    }
+
+    // Fetch forecasts for this region
+    const fcData   = await apiFetch(
+      `/forecasts?region_id=${encodeURIComponent(region.id)}&current=true&limit=300`
+    );
+    const forecasts = fcData.items || [];
+
+    renderWidget(region.name, pollenTypes, forecasts);
+
+  } catch (err) {
+    document.getElementById('content').innerHTML =
+      `<div class="status">
+         <div class="status-icon">⚠️</div>
+         <div class="status-msg err">Kunde inte hämta data.<br><br>${err.message}</div>
+       </div>`;
+    document.getElementById('sub').textContent    = 'Fel vid hämtning';
+    document.getElementById('footer').textContent = '';
+    console.error('[Pollen widget]', err);
+  } finally {
+    btn.classList.remove('spin');
+  }
+}
+
+init();
+setInterval(init, REFRESH_MS);
 </script>
 </body>
 </html>
