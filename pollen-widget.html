@@ -109,15 +109,13 @@ const DAY_SV   = ['Sön','Mån','Tis','Ons','Tor','Fre','Lör'];
 const LV_LABEL = ['–', 'L', 'L-M', 'M', 'H', 'H+'];
 const LV_TIP   = ['Ingen', 'Låga', 'Låga-måttliga', 'Måttliga', 'Höga', 'Mycket höga'];
 
-function countToLevel(count, t) {
-  if (!count || count <= 0 || !t) return 0;
-  if (count < t.low)       return 0;
-  if (count < t.medium)    return 1;
-  if (count < t.high)      return 2;
-  if (count < t.vhigh)     return 3;
-  if (count < t.vhigh * 2) return 4;
-  return 5;
-}
+const LEGEND = [
+  { c:'#4ade80', l:'L – Låga' },
+  { c:'#a3e635', l:'L-M' },
+  { c:'#facc15', l:'M – Måttliga' },
+  { c:'#fb923c', l:'H – Höga' },
+  { c:'#f87171', l:'H+' }
+];
 
 async function get(path) {
   const r = await fetch(API + path, { cache: 'no-store' });
@@ -137,81 +135,66 @@ async function init() {
       get('/pollen-types?offset=0&limit=100')
     ]);
 
-    // 2. Build threshold lookup
-    const types = typeData.items || [];
-    const thresholds = {};
-    types.forEach(pt => {
-      thresholds[pt.id] = {
-        low: pt.thresholdLow, medium: pt.thresholdMedium,
-        high: pt.thresholdHigh, vhigh: pt.thresholdVeryHigh
-      };
-    });
+    // 2. Build pollenId → name map
+    const types   = typeData.items || [];
+    const nameMap = {};
+    types.forEach(pt => { nameMap[pt.id] = pt.name; });
 
-    // 3. Find Stockholm region
+    // 3. Find Stockholm
     const region = (regData.items || []).find(r =>
       (r.name || '').toLowerCase().indexOf(REGION_NAME.toLowerCase()) >= 0
     );
-    if (!region) {
-      const names = (regData.items || []).map(r => r.name).join(', ');
-      throw new Error('Region "' + REGION_NAME + '" ej hittad. Finns: ' + names);
-    }
+    if (!region) throw new Error('Region "' + REGION_NAME + '" ej hittad');
 
-    // 4. Fetch forecasts
+    // 4. Fetch the current forecast
+    //    The API returns 1 item whose levelSeries[] contains all pollen × date entries
     const fcData = await get(
-      '/forecasts?region_id=' + encodeURIComponent(region.id) +
-      '&current=true&limit=500'
+      '/forecasts?region_id=' + encodeURIComponent(region.id) + '&current=true&limit=10'
     );
-    const items = fcData.items || [];
 
-    if (items.length === 0) {
-      throw new Error(
-        'API svarade OK men returnerade inga prognosdata för ' + region.name +
-        '. Prognosen kanske inte är publicerad ännu för idag.'
-      );
-    }
+    const forecast = (fcData.items || [])[0];
+    if (!forecast) throw new Error('Ingen aktuell prognos tillgänglig för ' + region.name);
 
-    // 5. Build date × pollen grid
+    const levelSeries = forecast.levelSeries || [];
+    if (levelSeries.length === 0) throw new Error('Prognosen saknar data (tom levelSeries)');
+
+    // 5. Parse levelSeries into grid: pollenId → dateStr → level (already 0-5)
     const dateSet = {};
     const grid    = {};
-    items.forEach(fc => {
-      const pid   = fc.pollen_id || fc.pollenId;
-      const date  = (fc.date || fc.forecast_date || '').slice(0, 10);
-      const count = fc.level != null ? fc.level :
-                    fc.levelCount != null ? fc.levelCount :
-                    fc.count != null ? fc.count : null;
-      if (!pid || !date) return;
+    levelSeries.forEach(entry => {
+      const pid  = entry.pollenId;
+      const date = (entry.time || '').slice(0, 10);
+      const lv   = entry.level;           // already 0-5, use directly!
+      if (!pid || !date || lv === undefined) return;
       dateSet[date] = true;
       if (!grid[pid]) grid[pid] = {};
-      grid[pid][date] = count;
+      grid[pid][date] = lv;
     });
 
-    const dates = Object.keys(dateSet).sort().slice(0, 5);
+    // 6. Collect and sort dates
     const today = new Date().toISOString().slice(0, 10);
+    const dates = Object.keys(dateSet).sort().slice(0, 5);
 
-    // 6. Build display rows — only types with forecast data
-    const rows = types
-      .filter(pt => pt.hasForecasts && grid[pt.id])
-      .map(pt => ({
-        name:  pt.name,
-        cells: dates.map(d => countToLevel(grid[pt.id][d], thresholds[pt.id]))
-      }));
+    // 7. Build display rows — only pollen types present in this forecast
+    //    Sort: highest max level first, zero-only at bottom
+    const rows = Object.keys(grid)
+      .filter(pid => nameMap[pid])        // only known types
+      .map(pid => ({
+        name:  nameMap[pid],
+        cells: dates.map(d => grid[pid][d] !== undefined ? grid[pid][d] : 0)
+      }))
+      .sort((a, b) => Math.max(...b.cells) - Math.max(...a.cells));
 
-    // Sort: active rows first, zero-only last
-    rows.sort((a, b) => {
-      const aMax = Math.max(...a.cells);
-      const bMax = Math.max(...b.cells);
-      return bMax - aMax;
-    });
+    if (rows.length === 0) throw new Error('Inga pollenttyper att visa');
 
-    // 7. Render
-    const numDays = dates.length;
-    const GCOLS   = '80px repeat(' + numDays + ', 1fr)';
+    // 8. Render
+    const GCOLS = '80px repeat(' + dates.length + ', 1fr)';
     let html = '';
 
     // Day headers
     html += '<div class="grid" style="grid-template-columns:' + GCOLS + '">';
     html += '<div></div>';
-    dates.forEach((d, i) => {
+    dates.forEach(d => {
       const isToday = d === today;
       const dt      = new Date(d + 'T12:00:00');
       const label   = isToday ? 'Idag' : DAY_SV[dt.getDay()];
@@ -230,19 +213,13 @@ async function init() {
       html += '<div class="p-name" title="' + row.name + '">' + row.name + '</div>';
       row.cells.forEach((lv, ci) => {
         const tip = row.name + ' ' + dates[ci] + ': ' + LV_TIP[lv] + ' halter';
-        html += '<div class="cell lv' + lv + '" title="' + tip + '">' +
-                LV_LABEL[lv] + '</div>';
+        html += '<div class="cell lv' + lv + '" title="' + tip + '">' + LV_LABEL[lv] + '</div>';
       });
       html += '</div>';
     });
     html += '</div>';
 
     // Legend
-    const LEGEND = [
-      { c:'#4ade80', l:'L – Låga' }, { c:'#a3e635', l:'L-M' },
-      { c:'#facc15', l:'M – Måttliga' }, { c:'#fb923c', l:'H – Höga' },
-      { c:'#f87171', l:'H+' }
-    ];
     html += '<div class="legend">';
     LEGEND.forEach(x => {
       html += '<div class="leg"><div class="leg-dot" style="background:' + x.c +
