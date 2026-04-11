@@ -4,64 +4,47 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Pollenprognos</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
   :root {
-    --bg:       #0f1117;
-    --surface:  #181c25;
-    --border:   #252a35;
-    --text-pri: #e8eaf0;
-    --text-sec: #8891a8;
-    --text-dim: #4a5068;
+    --bg:#0f1117; --surface:#181c25; --border:#252a35;
+    --text:#e8eaf0; --sec:#8891a8; --dim:#4a5068;
   }
-
-  html, body { width:100%; min-height:100%; background:var(--bg);
-    font-family:'DM Sans',sans-serif; color:var(--text-pri);
+  html,body { width:100%; min-height:100%; background:var(--bg);
+    font-family:'DM Sans',sans-serif; color:var(--text);
     font-size:13px; -webkit-font-smoothing:antialiased; }
-
   .widget { padding:14px 14px 12px; display:flex; flex-direction:column; gap:10px; }
 
-  /* ── Header ── */
-  .header { display:flex; align-items:center; justify-content:space-between; }
-  .header-left { display:flex; align-items:center; gap:8px; }
-  .icon { width:28px; height:28px; border-radius:50%;
-    background:linear-gradient(135deg,#1f3d1f,#0f2a1a);
-    border:1px solid #2a5a2a; display:flex; align-items:center;
-    justify-content:center; font-size:14px; flex-shrink:0; }
-  .title  { font-size:13px; font-weight:600; letter-spacing:.02em; }
-  .subtitle { font-size:10px; color:var(--text-sec); margin-top:1px; }
-  .refresh-btn { background:none; border:none; cursor:pointer;
-    color:var(--text-dim); padding:5px; border-radius:4px;
-    font-size:15px; line-height:1; transition:color .2s; }
-  .refresh-btn:hover { color:var(--text-sec); }
+  .hdr   { display:flex; align-items:center; justify-content:space-between; }
+  .hdr-l { display:flex; align-items:center; gap:8px; }
+  .icon  { width:28px; height:28px; border-radius:50%;
+    background:linear-gradient(135deg,#1f3d1f,#0f2a1a); border:1px solid #2a5a2a;
+    display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .title    { font-size:13px; font-weight:600; letter-spacing:.02em; }
+  .subtitle { font-size:10px; color:var(--sec); margin-top:1px; }
+
+  .refresh-btn { background:none; border:none; cursor:pointer; color:var(--dim);
+    padding:5px; border-radius:4px; font-size:15px; line-height:1; transition:color .2s; }
+  .refresh-btn:hover { color:var(--sec); }
   .refresh-btn.spin { animation:spin .7s linear infinite; display:inline-block; }
   @keyframes spin { to { transform:rotate(360deg); } }
 
-  /* ── Grid layout helper ── */
-  .day-grid, .pollen-row {
-    display:grid; gap:3px;
-  }
+  .grid { display:grid; gap:3px; }
 
-  /* ── Day column headers ── */
   .day-hdr { text-align:center; padding:5px 2px 4px;
     border-radius:7px; background:var(--surface); border:1px solid var(--border); }
   .day-hdr.today { background:#0f2318; border-color:#2a5a2a; }
   .day-name { font-size:10px; font-weight:600; text-transform:uppercase;
-    letter-spacing:.04em; color:var(--text-pri); line-height:1; }
+    letter-spacing:.04em; line-height:1; }
   .day-date { font-family:'DM Mono',monospace; font-size:9px;
-    color:var(--text-dim); margin-top:2px; line-height:1; }
+    color:var(--dim); margin-top:2px; line-height:1; }
   .day-hdr.today .day-name { color:#4ade80; }
   .day-hdr.today .day-date { color:#2a6a3a; }
 
-  /* ── Pollen name column ── */
-  .pollen-name { font-size:11px; font-weight:500; color:var(--text-sec);
+  .p-name { font-size:11px; font-weight:500; color:var(--sec);
     padding:0 4px 0 2px; white-space:nowrap; overflow:hidden;
     text-overflow:ellipsis; display:flex; align-items:center; }
-
-  /* ── Level cells ── */
   .cell { border-radius:5px; padding:5px 2px; text-align:center;
     font-size:10px; font-weight:600; font-family:'DM Mono',monospace;
     cursor:default; transition:transform .12s; }
@@ -73,25 +56,21 @@
   .lv4 { background:#2e1800; color:#fb923c; }
   .lv5 { background:#2e0a0a; color:#f87171; }
 
-  /* ── Legend ── */
-  .legend { display:flex; gap:7px; flex-wrap:wrap; padding:8px 3px 2px;
-    border-top:1px solid var(--border); }
-  .leg-item { display:flex; align-items:center; gap:4px;
-    font-size:9px; color:var(--text-dim); font-family:'DM Mono',monospace; }
+  .legend { display:flex; gap:7px; flex-wrap:wrap;
+    padding:8px 3px 2px; border-top:1px solid var(--border); }
+  .leg { display:flex; align-items:center; gap:4px;
+    font-size:9px; color:var(--dim); font-family:'DM Mono',monospace; }
   .leg-dot { width:7px; height:7px; border-radius:2px; flex-shrink:0; }
 
-  /* ── Footer ── */
-  .footer { font-size:9px; color:var(--text-dim); text-align:right;
+  .footer { font-size:9px; color:var(--dim); text-align:right;
     font-family:'DM Mono',monospace; padding-right:2px; }
 
-  /* ── Status / loading ── */
-  .status { text-align:center; padding:22px 0; display:flex;
-    flex-direction:column; align-items:center; gap:8px; }
-  .status-icon { font-size:22px; }
-  .status-msg  { font-size:11px; color:var(--text-dim); max-width:230px; line-height:1.5; }
-  .status-msg.err { color:#f87171; }
+  .status { text-align:center; padding:22px 0;
+    display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .s-icon { font-size:22px; }
+  .s-msg  { font-size:11px; color:var(--dim); max-width:240px; line-height:1.6; }
+  .s-msg.err { color:#f87171; }
 
-  /* ── Skeleton loader ── */
   .sk { border-radius:4px;
     background:linear-gradient(90deg,var(--surface) 25%,#1e2435 50%,var(--surface) 75%);
     background-size:200% 100%; animation:shimmer 1.5s infinite; }
@@ -100,206 +79,193 @@
 </head>
 <body>
 <div class="widget">
-
-  <div class="header">
-    <div class="header-left">
+  <div class="hdr">
+    <div class="hdr-l">
       <div class="icon">🌿</div>
       <div>
         <div class="title">Pollenprognos</div>
         <div class="subtitle" id="sub">Hämtar data…</div>
       </div>
     </div>
-    <button class="refresh-btn" id="refreshBtn" title="Uppdatera" onclick="init()">↺</button>
+    <button class="refresh-btn" id="btn" title="Uppdatera" onclick="init()">↺</button>
   </div>
-
   <div id="content">
     <div class="status">
       <div class="sk" style="width:28px;height:28px;border-radius:50%"></div>
-      <div class="sk" style="width:140px;height:10px;margin-top:4px"></div>
+      <div class="sk" style="width:140px;height:10px;margin-top:6px"></div>
     </div>
   </div>
-
   <div class="footer" id="footer"></div>
-
 </div>
+
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────────
-const REGION_NAME = 'Stockholm';   // must match a region name returned by the API
+// ── CONFIG ──────────────────────────────────────────────────────
+const REGION_NAME = 'Stockholm';
 const REFRESH_MS  = 6 * 60 * 60 * 1000;
-const BASE        = 'https://api.pollenrapporten.se/v1';
-const PROXY       = 'https://corsproxy.io/?url=';
-// ────────────────────────────────────────────────────────────────────
+const API         = 'https://api.pollenrapporten.se/v1';
+// ────────────────────────────────────────────────────────────────
 
-const DAY_SV = ['Sön','Mån','Tis','Ons','Tor','Fre','Lör'];
+const DAY_SV   = ['Sön','Mån','Tis','Ons','Tor','Fre','Lör'];
+const LV_LABEL = ['–', 'L', 'L-M', 'M', 'H', 'H+'];
+const LV_TIP   = ['Ingen', 'Låga', 'Låga-måttliga', 'Måttliga', 'Höga', 'Mycket höga'];
 
-// Try direct first (API supports CORS), fall back to proxy
-async function apiFetch(path) {
-  const url = BASE + path;
-  let res;
-  try {
-    res = await fetch(url, { cache:'no-store' });
-    if (res.ok) return res.json();
-  } catch (_) { /* fall through */ }
-  // Proxy fallback
-  res = await fetch(PROXY + encodeURIComponent(url), { cache:'no-store' });
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
-  return res.json();
+function countToLevel(count, t) {
+  if (!count || count <= 0 || !t) return 0;
+  if (count < t.low)       return 0;
+  if (count < t.medium)    return 1;
+  if (count < t.high)      return 2;
+  if (count < t.vhigh)     return 3;
+  if (count < t.vhigh * 2) return 4;
+  return 5;
 }
 
-// Convert a numeric pollen count → level 0-5 using the type's thresholds
-function getLevel(count, pt) {
-  if (count === null || count === undefined || count < 0) return 0;
-  if (count === 0)          return 0;
-  if (count < pt.thresholdLow)      return 0;
-  if (count < pt.thresholdMedium)   return 1;   // Låg
-  if (count < pt.thresholdHigh)     return 2;   // Medel
-  if (count < pt.thresholdVeryHigh) return 3;   // Hög
-  return 4;                                      // Mycket hög
+async function get(path) {
+  const r = await fetch(API + path, { cache: 'no-store' });
+  if (!r.ok) throw new Error(path + ' → HTTP ' + r.status);
+  return r.json();
 }
 
-const LV_LABEL = ['–','L','M','H','H+'];
-const LV_TIP   = ['Ingen/saknas','Låg','Medel','Hög','Mycket hög'];
-
-function renderWidget(regionName, pollenTypes, forecasts) {
-
-  // Map pollenId → type object
-  const ptMap = {};
-  pollenTypes.forEach(pt => { ptMap[pt.id] = pt; });
-
-  // ── Group forecast items ──────────────────────────────────────────
-  // Expected item fields: pollen_id, date (ISO string), level (numeric count)
-  const dateSet = new Set();
-  const grid = {};   // grid[pollenId][dateStr] = level count
-
-  forecasts.forEach(fc => {
-    const dateStr = (fc.date || fc.forecast_date || '').slice(0, 10);
-    if (!dateStr) return;
-    // Accept any field that looks like a numeric pollen count
-    const count = fc.level ?? fc.levelCount ?? fc.count ?? fc.value ?? null;
-    dateSet.add(dateStr);
-    if (!grid[fc.pollen_id]) grid[fc.pollen_id] = {};
-    grid[fc.pollen_id][dateStr] = count;
-  });
-
-  const today = new Date().toISOString().slice(0, 10);
-  const dates = Array.from(dateSet).sort().slice(0, 5);
-  const numCols = Math.max(dates.length, 1);
-  const GCOLS = `80px repeat(${numCols}, 1fr)`;
-
-  // Only show types that have forecast data and are forecast-enabled
-  const activeTypes = pollenTypes.filter(
-    pt => pt.hasForecasts && grid[pt.id] && Object.keys(grid[pt.id]).length > 0
-  );
-
-  let html = '';
-
-  // ── Day headers ───────────────────────────────────────────────────
-  html += `<div class="day-grid" style="grid-template-columns:${GCOLS}">`;
-  html += '<div></div>';
-  dates.forEach(d => {
-    const isToday = (d === today);
-    const dt      = new Date(d + 'T12:00:00');
-    const dayName = isToday ? 'Idag' : DAY_SV[dt.getDay()];
-    const dayDate = `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}`;
-    html += `<div class="day-hdr${isToday ? ' today' : ''}">
-               <div class="day-name">${dayName}</div>
-               <div class="day-date">${dayDate}</div>
-             </div>`;
-  });
-  html += '</div>';
-
-  // ── Pollen rows ───────────────────────────────────────────────────
-  html += '<div style="display:flex;flex-direction:column;gap:3px">';
-
-  if (activeTypes.length === 0) {
-    html += `<div class="status">
-               <div class="status-msg">
-                 Ingen prognosdata för ${regionName} just nu.<br>
-                 Prova igen senare.
-               </div>
-             </div>`;
-  } else {
-    activeTypes.forEach(pt => {
-      html += `<div class="pollen-row" style="grid-template-columns:${GCOLS}">
-                 <div class="pollen-name" title="${pt.name}">${pt.name}</div>`;
-      dates.forEach(d => {
-        const count = grid[pt.id]?.[d];
-        const lv    = getLevel(count, pt);
-        const tip   = `${pt.name} ${d}: ${LV_TIP[lv]}${count != null ? ` (${count})` : ''}`;
-        html += `<div class="cell lv${lv}" title="${tip}">${LV_LABEL[lv]}</div>`;
-      });
-      html += '</div>';
-    });
-  }
-  html += '</div>';
-
-  // ── Legend ────────────────────────────────────────────────────────
-  const LEGEND = [
-    { col:'#4ade80', label:'L – Låg' },
-    { col:'#facc15', label:'M – Medel' },
-    { col:'#fb923c', label:'H – Hög' },
-    { col:'#f87171', label:'H+' },
-  ];
-  html += '<div class="legend">';
-  LEGEND.forEach(l =>
-    html += `<div class="leg-item">
-               <div class="leg-dot" style="background:${l.col};opacity:.8"></div>
-               <span>${l.label}</span>
-             </div>`
-  );
-  html += '</div>';
-
-  document.getElementById('content').innerHTML  = html;
-  document.getElementById('sub').textContent    = `${regionName} · Pollenrapporten`;
-  document.getElementById('footer').textContent =
-    'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE',{ hour:'2-digit', minute:'2-digit' });
-}
-
-// ── Bootstrap ─────────────────────────────────────────────────────────
 async function init() {
-  const btn = document.getElementById('refreshBtn');
+  const btn = document.getElementById('btn');
   btn.classList.add('spin');
   document.getElementById('sub').textContent = 'Hämtar data…';
 
   try {
-    // Parallel fetch: pollen types + regions list
-    const [typesData, regionsData] = await Promise.all([
-      apiFetch('/pollen-types?offset=0&limit=100'),
-      apiFetch('/regions?offset=0&limit=100'),
+    // 1. Fetch regions + pollen types in parallel
+    const [regData, typeData] = await Promise.all([
+      get('/regions?offset=0&limit=100'),
+      get('/pollen-types?offset=0&limit=100')
     ]);
 
-    const pollenTypes = typesData.items  || [];
-    const regions     = regionsData.items || [];
+    // 2. Build threshold lookup
+    const types = typeData.items || [];
+    const thresholds = {};
+    types.forEach(pt => {
+      thresholds[pt.id] = {
+        low: pt.thresholdLow, medium: pt.thresholdMedium,
+        high: pt.thresholdHigh, vhigh: pt.thresholdVeryHigh
+      };
+    });
 
-    // Find our target region (case-insensitive substring match)
-    const region = regions.find(r =>
-      (r.name || '').toLowerCase().includes(REGION_NAME.toLowerCase())
+    // 3. Find Stockholm region
+    const region = (regData.items || []).find(r =>
+      (r.name || '').toLowerCase().indexOf(REGION_NAME.toLowerCase()) >= 0
     );
     if (!region) {
-      const names = regions.map(r => r.name).join(', ');
-      throw new Error(`"${REGION_NAME}" ej hittad. Tillgängliga regioner: ${names || 'inga'}`);
+      const names = (regData.items || []).map(r => r.name).join(', ');
+      throw new Error('Region "' + REGION_NAME + '" ej hittad. Finns: ' + names);
     }
 
-    // Fetch forecasts for this region
-    const fcData   = await apiFetch(
-      `/forecasts?region_id=${encodeURIComponent(region.id)}&current=true&limit=300`
+    // 4. Fetch forecasts
+    const fcData = await get(
+      '/forecasts?region_id=' + encodeURIComponent(region.id) +
+      '&current=true&limit=500'
     );
-    const forecasts = fcData.items || [];
+    const items = fcData.items || [];
 
-    renderWidget(region.name, pollenTypes, forecasts);
+    if (items.length === 0) {
+      throw new Error(
+        'API svarade OK men returnerade inga prognosdata för ' + region.name +
+        '. Prognosen kanske inte är publicerad ännu för idag.'
+      );
+    }
+
+    // 5. Build date × pollen grid
+    const dateSet = {};
+    const grid    = {};
+    items.forEach(fc => {
+      const pid   = fc.pollen_id || fc.pollenId;
+      const date  = (fc.date || fc.forecast_date || '').slice(0, 10);
+      const count = fc.level != null ? fc.level :
+                    fc.levelCount != null ? fc.levelCount :
+                    fc.count != null ? fc.count : null;
+      if (!pid || !date) return;
+      dateSet[date] = true;
+      if (!grid[pid]) grid[pid] = {};
+      grid[pid][date] = count;
+    });
+
+    const dates = Object.keys(dateSet).sort().slice(0, 5);
+    const today = new Date().toISOString().slice(0, 10);
+
+    // 6. Build display rows — only types with forecast data
+    const rows = types
+      .filter(pt => pt.hasForecasts && grid[pt.id])
+      .map(pt => ({
+        name:  pt.name,
+        cells: dates.map(d => countToLevel(grid[pt.id][d], thresholds[pt.id]))
+      }));
+
+    // Sort: active rows first, zero-only last
+    rows.sort((a, b) => {
+      const aMax = Math.max(...a.cells);
+      const bMax = Math.max(...b.cells);
+      return bMax - aMax;
+    });
+
+    // 7. Render
+    const numDays = dates.length;
+    const GCOLS   = '80px repeat(' + numDays + ', 1fr)';
+    let html = '';
+
+    // Day headers
+    html += '<div class="grid" style="grid-template-columns:' + GCOLS + '">';
+    html += '<div></div>';
+    dates.forEach((d, i) => {
+      const isToday = d === today;
+      const dt      = new Date(d + 'T12:00:00');
+      const label   = isToday ? 'Idag' : DAY_SV[dt.getDay()];
+      const dstr    = ('0' + dt.getDate()).slice(-2) + '/' +
+                      ('0' + (dt.getMonth() + 1)).slice(-2);
+      html += '<div class="day-hdr' + (isToday ? ' today' : '') + '">' +
+              '<div class="day-name">' + label + '</div>' +
+              '<div class="day-date">' + dstr  + '</div></div>';
+    });
+    html += '</div>';
+
+    // Pollen rows
+    html += '<div style="display:flex;flex-direction:column;gap:3px">';
+    rows.forEach(row => {
+      html += '<div class="grid" style="grid-template-columns:' + GCOLS + '">';
+      html += '<div class="p-name" title="' + row.name + '">' + row.name + '</div>';
+      row.cells.forEach((lv, ci) => {
+        const tip = row.name + ' ' + dates[ci] + ': ' + LV_TIP[lv] + ' halter';
+        html += '<div class="cell lv' + lv + '" title="' + tip + '">' +
+                LV_LABEL[lv] + '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div>';
+
+    // Legend
+    const LEGEND = [
+      { c:'#4ade80', l:'L – Låga' }, { c:'#a3e635', l:'L-M' },
+      { c:'#facc15', l:'M – Måttliga' }, { c:'#fb923c', l:'H – Höga' },
+      { c:'#f87171', l:'H+' }
+    ];
+    html += '<div class="legend">';
+    LEGEND.forEach(x => {
+      html += '<div class="leg"><div class="leg-dot" style="background:' + x.c +
+              ';opacity:.8"></div><span>' + x.l + '</span></div>';
+    });
+    html += '</div>';
+
+    document.getElementById('content').innerHTML  = html;
+    document.getElementById('sub').textContent    = region.name + ' · Pollenrapporten';
+    document.getElementById('footer').textContent =
+      'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE',
+        { hour: '2-digit', minute: '2-digit' });
 
   } catch (err) {
     document.getElementById('content').innerHTML =
-      `<div class="status">
-         <div class="status-icon">⚠️</div>
-         <div class="status-msg err">Kunde inte hämta data.<br><br>${err.message}</div>
-       </div>`;
+      '<div class="status"><div class="s-icon">⚠️</div>' +
+      '<div class="s-msg err">' + (err.message || String(err)) + '</div></div>';
     document.getElementById('sub').textContent    = 'Fel vid hämtning';
     document.getElementById('footer').textContent = '';
-    console.error('[Pollen widget]', err);
-  } finally {
-    btn.classList.remove('spin');
+    console.error('[Pollen]', err);
   }
+
+  btn.classList.remove('spin');
 }
 
 init();

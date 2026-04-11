@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pollen API Debug</title>
+<style>
+  body { background:#0f1117; color:#e8eaf0; font-family:monospace;
+    font-size:11px; padding:12px; }
+  h3  { color:#4ade80; margin:14px 0 6px; font-size:12px; }
+  pre { background:#181c25; border:1px solid #252a35; border-radius:6px;
+    padding:10px; white-space:pre-wrap; word-break:break-all;
+    max-height:300px; overflow-y:auto; line-height:1.5; }
+  .err { color:#f87171; }
+  .ok  { color:#4ade80; }
+  .dim { color:#4a5068; }
+  button { background:#1e2535; border:1px solid #252a35; color:#e8eaf0;
+    padding:6px 12px; border-radius:6px; cursor:pointer; font-size:11px;
+    font-family:monospace; margin-bottom:12px; }
+</style>
+</head>
+<body>
+<button onclick="runDebug()">▶ Kör debug</button>
+<div id="out"></div>
+
+<script>
+const API = 'https://api.pollenrapporten.se/v1';
+
+function log(id, title, content, isErr) {
+  document.getElementById('out').innerHTML +=
+    '<h3>' + title + '</h3>' +
+    '<pre class="' + (isErr ? 'err' : '') + '">' +
+    JSON.stringify(content, null, 2) + '</pre>';
+}
+
+async function runDebug() {
+  document.getElementById('out').innerHTML = '<span class="dim">Hämtar…</span>';
+
+  try {
+    // Step 1: regions
+    const rr = await fetch(API + '/regions?offset=0&limit=100', { cache:'no-store' });
+    const rd = await rr.json();
+    document.getElementById('out').innerHTML = '';
+    log('r', 'REGIONS (items[0..2])', rd.items ? rd.items.slice(0,3) : rd);
+
+    // Find Stockholm
+    const region = (rd.items||[]).find(r =>
+      (r.name||'').toLowerCase().includes('stockholm')
+    );
+    if (!region) { log('e','ERROR','Stockholm not found'); return; }
+    log('rid', 'STOCKHOLM REGION OBJECT', region);
+
+    // Step 2: pollen types
+    const tr = await fetch(API + '/pollen-types?offset=0&limit=100', { cache:'no-store' });
+    const td = await tr.json();
+    log('t', 'POLLEN TYPES (first 3)', td.items ? td.items.slice(0,3) : td);
+
+    // Step 3: forecasts WITH current=true
+    const url1 = API + '/forecasts?region_id=' + encodeURIComponent(region.id) +
+                 '&current=true&limit=500';
+    log('u1', 'FORECAST URL (current=true)', url1);
+    const fr1 = await fetch(url1, { cache:'no-store' });
+    const fd1 = await fr1.json();
+    log('f1', 'FORECASTS current=true — _meta', fd1._meta || {});
+    log('f1i', 'FORECASTS current=true — items[0..2]',
+        fd1.items ? fd1.items.slice(0,3) : fd1);
+
+    // Step 4: forecasts WITHOUT current filter
+    const url2 = API + '/forecasts?region_id=' + encodeURIComponent(region.id) + '&limit=20';
+    log('u2', 'FORECAST URL (no current filter)', url2);
+    const fr2 = await fetch(url2, { cache:'no-store' });
+    const fd2 = await fr2.json();
+    log('f2', 'FORECASTS no-filter — _meta', fd2._meta || {});
+    log('f2i', 'FORECASTS no-filter — items[0..5]',
+        fd2.items ? fd2.items.slice(0,5) : fd2);
+
+    // Step 5: if items exist, show all unique field names from first item
+    const allItems = fd1.items && fd1.items.length ? fd1.items : (fd2.items || []);
+    if (allItems.length > 0) {
+      log('fk', 'ALL FIELD NAMES in first forecast item', Object.keys(allItems[0]));
+    } else {
+      log('fe', 'NOTE', 'Both forecast queries returned 0 items');
+    }
+
+  } catch(e) {
+    document.getElementById('out').innerHTML +=
+      '<pre class="err">EXCEPTION: ' + e + '</pre>';
+  }
+}
+
+runDebug();
+</script>
+</body>
+</html>
