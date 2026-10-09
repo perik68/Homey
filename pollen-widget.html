@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pollen Stockholm</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0f1117; --surface: #181c25; --border: #252a35;
+    --text: #e8eaf0; --dim: #8891a8; --faint: #3d4459;
+  }
+  html, body { background: var(--bg); color: var(--text);
+    font-family: 'DM Sans', sans-serif; font-size: 12px;
+    -webkit-font-smoothing: antialiased; height: 100%; }
+
+  .wrap { padding: 10px 12px; display: flex; flex-direction: column;
+    gap: 8px; height: 100%; }
+
+  /* Header */
+  .hdr { display: flex; align-items: flex-start; justify-content: space-between; }
+  .title { font-size: 12px; font-weight: 600; letter-spacing: .01em; }
+  .updated { font-size: 9px; color: var(--faint);
+    font-family: 'DM Mono', monospace; margin-top: 2px; }
+
+  /* Grid */
+  .grid { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+  .row  { display: flex; align-items: center; gap: 5px; }
+  .pname { font-size: 10px; color: var(--dim); width: 74px;
+    flex-shrink: 0; white-space: nowrap; overflow: hidden;
+    text-overflow: ellipsis; }
+  .cells { display: flex; gap: 2px; flex: 1; }
+  .cell { flex: 1; height: 18px; border-radius: 3px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8px; font-family: 'DM Mono', monospace;
+    font-weight: 500; cursor: default; }
+
+  /* Date header row */
+  .drow { display: flex; align-items: center; gap: 5px; }
+  .dlbl { width: 74px; flex-shrink: 0; }
+  .dcells { display: flex; gap: 2px; flex: 1; }
+  .dcell { flex: 1; text-align: center; font-size: 8px;
+    color: var(--faint); font-family: 'DM Mono', monospace; }
+
+  /* Level colors */
+  .lv0 { background: #1e2230; color: #3d4459; }
+  .lv1 { background: #0f2318; color: #4ade80; }
+  .lv2 { background: #1a2a10; color: #86efac; }
+  .lv3 { background: #2a2200; color: #facc15; }
+  .lv4 { background: #2a1500; color: #fb923c; }
+  .lv5 { background: #2a0a0a; color: #f87171; }
+
+  /* Legend */
+  .legend { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: 3px;
+    font-size: 9px; color: var(--faint); }
+  .leg-dot { width: 8px; height: 8px; border-radius: 2px; }
+
+  /* State screens */
+  .state { display: flex; flex-direction: column; align-items: center;
+    justify-content: center; flex: 1; gap: 8px; text-align: center;
+    padding: 12px; }
+  .state-icon { font-size: 28px; line-height: 1; }
+  .state-title { font-size: 12px; font-weight: 600; color: var(--text); }
+  .state-sub { font-size: 10px; color: var(--dim); line-height: 1.5; }
+  .state-detail { font-size: 9px; color: var(--faint);
+    font-family: 'DM Mono', monospace; }
+
+  /* Error */
+  .err-text { font-size: 10px; color: #f87171; text-align: center;
+    padding: 4px; line-height: 1.5; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="hdr">
+    <div>
+      <div class="title">🌿 Pollen Stockholm</div>
+      <div class="updated" id="ts">Hämtar…</div>
+    </div>
+  </div>
+  <div id="content" style="flex:1;display:flex;flex-direction:column;gap:8px;"></div>
+</div>
+
+<script>
+const API = 'https://api.pollenrapporten.se/v1';
+const REFRESH_MS = 6 * 60 * 60 * 1000; // 6 h
+
+const LV = [
+  { cls: 'lv0', label: '–' },
+  { cls: 'lv1', label: 'L' },
+  { cls: 'lv2', label: 'L' },
+  { cls: 'lv3', label: 'M' },
+  { cls: 'lv4', label: 'H' },
+  { cls: 'lv5', label: 'H+' },
+];
+
+async function get(path) {
+  const r = await fetch(API + path, { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status + ' → ' + path);
+  return r.json();
+}
+
+function fmtDate(iso) {
+  if (!iso) return '?';
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString('sv-SE', { month: 'short', day: 'numeric' });
+}
+
+function dayLabel(iso) {
+  const d = new Date(iso + 'T12:00:00');
+  const today = new Date();
+  today.setHours(12, 0, 0, 0);
+  const diff = Math.round((d - today) / 86400000);
+  if (diff === 0) return 'idag';
+  if (diff === 1) return 'imorg';
+  return d.toLocaleDateString('sv-SE', { weekday: 'short' });
+}
+
+function renderOffSeason(lastDate) {
+  const fmted = fmtDate(lastDate);
+  return `
+    <div class="state">
+      <div class="state-icon">❄️</div>
+      <div class="state-title">Pollensäsongen är slut</div>
+      <div class="state-sub">
+        Inga aktiva prognoser just nu.<br>
+        Säsongen brukar börja igen i februari–mars.
+      </div>
+      ${lastDate ? '<div class="state-detail">Senaste prognos: ' + fmted + '</div>' : ''}
+    </div>`;
+}
+
+function renderGrid(forecast, nameMap) {
+  const levelSeries = forecast.levelSeries || [];
+
+  // Build grid: pollenId → dateStr → level
+  const dateSet = {};
+  const grid = {};
+  levelSeries.forEach(e => {
+    const pid = e.pollenId;
+    const date = (e.time || '').slice(0, 10);
+    const lv = Math.min(5, Math.max(0, e.level || 0));
+    if (!date) return;
+    dateSet[date] = true;
+    if (!grid[pid]) grid[pid] = {};
+    grid[pid][date] = lv;
+  });
+
+  const dates = Object.keys(dateSet).sort().slice(0, 7);
+  if (dates.length === 0) return '<div class="state-sub">Ingen data i prognosen.</div>';
+
+  // Rows: only pollens with at least one non-zero level, sorted by max
+  const rows = Object.keys(grid)
+    .filter(pid => nameMap[pid])
+    .map(pid => ({
+      name: nameMap[pid],
+      cells: dates.map(d => grid[pid][d] !== undefined ? grid[pid][d] : 0)
+    }))
+    .filter(r => r.cells.some(v => v > 0))
+    .sort((a, b) => Math.max(...b.cells) - Math.max(...a.cells));
+
+  if (rows.length === 0) {
+    return '<div class="state-sub">Inga förhöjda pollennivåer.</div>';
+  }
+
+  const dRowHtml = `
+    <div class="drow">
+      <div class="dlbl"></div>
+      <div class="dcells">
+        ${dates.map(d => `<div class="dcell">${dayLabel(d)}</div>`).join('')}
+      </div>
+    </div>`;
+
+  const rowsHtml = rows.map(r => `
+    <div class="row">
+      <div class="pname" title="${r.name}">${r.name}</div>
+      <div class="cells">
+        ${r.cells.map(lv => {
+          const l = LV[lv];
+          return `<div class="cell ${l.cls}" title="Nivå ${lv}">${l.label}</div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+
+  const legendHtml = `
+    <div class="legend">
+      ${LV.slice(1).map((l,i) =>
+        `<div class="leg-item"><div class="leg-dot ${l.cls}"></div>${['Låg','L-M','Medel','Hög','Mycket hög'][i]}</div>`
+      ).join('')}
+    </div>`;
+
+  return `<div class="grid">${dRowHtml}${rowsHtml}</div>${legendHtml}`;
+}
+
+async function init() {
+  const content = document.getElementById('content');
+  const ts = document.getElementById('ts');
+
+  try {
+    const [regData, typeData] = await Promise.all([
+      get('/regions?offset=0&limit=100'),
+      get('/pollen-types?offset=0&limit=100')
+    ]);
+
+    const nameMap = {};
+    (typeData.items || []).forEach(pt => { nameMap[pt.id] = pt.name; });
+
+    const region = (regData.items || []).find(r =>
+      (r.name || '').toLowerCase().indexOf('stockholm') >= 0
+    );
+    if (!region) throw new Error('Stockholmsregion hittades inte');
+
+    // Try current forecast first
+    const fcData = await get(
+      '/forecasts?region_id=' + encodeURIComponent(region.id) + '&current=true&limit=10'
+    );
+    const items = fcData.items || [];
+
+    if (items.length === 0) {
+      // Off season — fetch latest historical to get end date
+      let lastDate = null;
+      try {
+        const hist = await get(
+          '/forecasts?region_id=' + encodeURIComponent(region.id) + '&limit=1&offset=0'
+        );
+        const h = (hist.items || [])[0];
+        if (h) lastDate = (h.endDate || h.startDate || '').slice(0, 10);
+      } catch (_) {}
+
+      content.innerHTML = renderOffSeason(lastDate);
+      ts.textContent = 'Uppdaterad ' + new Date().toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    } else {
+      content.innerHTML = renderGrid(items[0], nameMap);
+      const fc = items[0];
+      const endLabel = fc.endDate ? ' t.o.m. ' + fmtDate(fc.endDate.slice(0,10)) : '';
+      ts.textContent = 'Prognos fr.o.m. ' + fmtDate((fc.startDate||'').slice(0,10)) + endLabel;
+    }
+
+  } catch (e) {
+    content.innerHTML = `<div class="state">
+      <div class="state-icon">⚠️</div>
+      <div class="err-text">${String(e)}</div>
+    </div>`;
+    ts.textContent = 'Fel vid hämtning';
+  }
+
+  setTimeout(init, REFRESH_MS);
+}
+
+init();
+</script>
+</body>
+</html>
